@@ -1,2 +1,2 @@
-# jacobs-jspn-schema
+# jacobs-json-schema
 A JSON/YAML loader for Python
