@@ -6,12 +6,12 @@ from parser import Parser
 from resolver import ResolverBaseClass
 
 
-
 class DocElement:
 
     def __init__(self, doc_root, line: int):
         self._line = line
         self._doc_root = doc_root
+        self._is_ref = False
 
     @property
     def line(self) -> int:
@@ -24,6 +24,10 @@ class DocElement:
     @property
     def root(self):
         return self._doc_root
+
+    @property
+    def is_ref(self):
+        self._is_ref
 
     def construct(self, data, parent, idx=None):
         if isinstance(data, dict):
@@ -39,12 +43,12 @@ class DocElement:
         else:
             if idx is not None:
                 if isinstance(parent, dict):
-                    dv = DocValue(data, self.root, parent.lc.value(idx))
-                    dv.set_key(idx, parent.lc.key(idx))
+                    dv = DocValue(data, self.root, parent.lc.value(idx)[0])
+                    dv.set_key(idx, parent.lc.key(idx)[0])
                     return dv
                 elif isinstance(parent, list):
-                    dv = DocValue(data, self.root, parent.lc.item(idx))
-                    dv.set_key(idx, parent.lc.item(idx))
+                    dv = DocValue(data, self.root, parent.lc.item(idx)[0])
+                    dv.set_key(idx, parent.lc.item(idx)[0])
                     return dv
             else:
                 return DocValue(data, self.root, line=None)
@@ -66,6 +70,17 @@ class DocArray(DocElement, UserList):
         self.data = []
         for i, v in enumerate(data):
             self.data.append(self.construct(v, data, i))
+
+
+class DocReference(DocElement):
+
+    def __init__(self, reference, doc_root, line):
+        super().__init__(doc_root, line)
+        self._reference = reference
+
+    @property
+    def is_reference(self):
+        return True
 
 
 class DocValue(DocElement):
@@ -97,5 +112,19 @@ class Document(DocObject):
         self._resolver = resolver
         self._loader = loader
         self.parser = Parser()
-        structure = self.parser.parse_yaml(loader.Load(self._uri))
+        structure = self.parser.parse_yaml(loader.load(self._uri))
         super().__init__(structure, self, 0)
+
+class DocumentCache(object):
+
+    def __init__(self, resolver, loader):
+        self._cache = {}
+        self._resolver = resolver
+        self._loader = loader
+    
+    def get_doc(self, uri):
+        if uri not in self._cache:
+            data = self._loader.load(uri)
+            doc = Document(data, self._resolver, self._loader)
+            self._cache[uri] = doc
+        return self._cache[uri]
