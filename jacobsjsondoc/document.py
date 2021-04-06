@@ -6,13 +6,10 @@ from parser import Parser
 from resolver import ResolverBaseClass
 
 
-class ParseMode(Enum):
-    DEFAULT = 0
-
 
 class DocElement:
 
-    def __init__(self, doc_root: DocArray, line: int):
+    def __init__(self, doc_root, line: int):
         self._line = line
         self._doc_root = doc_root
 
@@ -25,44 +22,55 @@ class DocElement:
         self._line = value
 
     @property
-    def root(self) -> Document:
+    def root(self):
         return self._doc_root
 
-    def convert(self, data, parent, idx=None):
+    def construct(self, data, parent, idx=None):
         if isinstance(data, dict):
-            return DocObject(data, self.root, data.lc.line)
+            dobj = DocObject(data, self.root, data.lc.line)
+            for k, v in data.items():
+                dobj[k] = self.construct(v, data, k)
+            return dobj
         elif isinstance(data, list):
-            return DocArray(data, self.root, data.lc.line)
+            da = DocArray(data, self.root, data.lc.line)
+            for i, v in enumerate(data):
+                da.append(self.construct(v, data, i))
+            return da
         else:
             if idx is not None:
                 if isinstance(parent, dict):
-                    dv = DocValue(data, self.root, parent.lc.value(key))
-                    dv.set_key(key, parent.lc.key(key))
+                    dv = DocValue(data, self.root, parent.lc.value(idx))
+                    dv.set_key(idx, parent.lc.key(idx))
                     return dv
                 elif isinstance(parent, list):
-                    dv = DocValue(data, self.root, parent.lc.)
-            if idx is not None:
-                pass
+                    dv = DocValue(data, self.root, parent.lc.item(idx))
+                    dv.set_key(idx, parent.lc.item(idx))
+                    return dv
+            else:
+                return DocValue(data, self.root, line=None)
 
 
 class DocObject(DocElement, UserDict):
     
-    def __init__(self, data: dict, doc_root: Document, line: int):
+    def __init__(self, data: dict, doc_root, line: int):
         super().__init__(doc_root, line)
+        self.data = {}
         for k, v in data.items():
-            if 
+            self.data[k] = self.construct(v, data, k)
 
 
 class DocArray(DocElement, UserList):
 
-    def __init__(self, data: list, doc_root: Document, line: int):
+    def __init__(self, data: list, doc_root, line: int):
         super().__init__(doc_root, line)
-        self.data = data
+        self.data = []
+        for i, v in enumerate(data):
+            self.data.append(self.construct(v, data, i))
 
 
 class DocValue(DocElement):
 
-    def __init__(self, value, doc_root: Document, line: int):
+    def __init__(self, value, doc_root, line: int):
         super().__init__(doc_root, line)
         self.data = value
         self.key = None
@@ -76,12 +84,18 @@ class DocValue(DocElement):
         self.key = key_name
         self.key_line = key_line
 
+    def __repr__(self):
+        if isinstance(self.data, str):
+            return f'"{self.data}"'
+        return str(self.data)
 
-class Document(DocObject:
 
-    def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, parse_mode: ParseMode=ParseMode.DEFAULT):
+class Document(DocObject):
+
+    def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass):
         self._uri = uri
         self._resolver = resolver
         self._loader = loader
-        self.parse_mode = parse_mode
-        super().__init__(loader.Load(self._uri))
+        self.parser = Parser()
+        structure = self.parser.parse_yaml(loader.Load(self._uri))
+        super().__init__(structure, self, 0)

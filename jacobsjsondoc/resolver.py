@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 import os.path
 
 class ResolverBaseClass(ABC):
