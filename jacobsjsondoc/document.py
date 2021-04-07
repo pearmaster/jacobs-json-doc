@@ -6,6 +6,11 @@ from parser import Parser
 from resolver import ResolverBaseClass
 
 
+class RefResolutionMode(Enum):
+    USE_REFERENCES_OBJECTS = 0
+    RESOLVE_REFERENCES = 1
+
+
 class DocElement:
 
     def __init__(self, doc_root, line: int):
@@ -31,6 +36,12 @@ class DocElement:
 
     def construct(self, data, parent, idx=None):
         if isinstance(data, dict):
+            if len(data) == 1 and '$ref' in data:
+                if self._doc_root._ref_resolution_mode == RefResolutionMode.USE_REFERENCES_OBJECTS:
+                    dref = DocReference(data['$ref'], self.root, data.lc.line)
+                    return dref
+                else:
+                    raise NotImplemented
             dobj = DocObject(data, self.root, data.lc.line)
             for k, v in data.items():
                 dobj[k] = self.construct(v, data, k)
@@ -79,9 +90,21 @@ class DocReference(DocElement):
         self._reference = reference
 
     @property
-    def is_reference(self):
+    def is_ref(self):
         return True
 
+    @property
+    def reference(self):
+        return self._reference
+
+    def resolve(self):
+        href, path = self._reference.split('#')
+        doc = self.root
+        if len(href) > 0:
+            uri = self.root.resolve_uri(href)
+            doc = self.root.get_doc(uri)
+        node = doc.get_node(path)
+        return node
 
 class DocValue(DocElement):
 
@@ -104,16 +127,30 @@ class DocValue(DocElement):
             return f'"{self.data}"'
         return str(self.data)
 
-
 class Document(DocObject):
 
-    def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass):
+    def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS):
+        self._ref_resolution_mode=ref_resolution
         self._uri = uri
         self._resolver = resolver
         self._loader = loader
         self.parser = Parser()
+        self._doc_cache = DocumentCache(self._resolver, self._loader)
         structure = self.parser.parse_yaml(loader.load(self._uri))
         super().__init__(structure, self, 0)
+
+    def resolve_uri(self, href):
+        return self._resolver.resolve(self._uri, href)
+
+    def get_node(self, path):
+        path_parts = [ p for p in path.split('/') if len(p) > 0 ]
+        node = self
+        for part in path_parts:
+            node = node[part]
+        return node
+
+    def get_doc(self, uri):
+        return self._doc_cache.get_doc(uri)
 
 class DocumentCache(object):
 
