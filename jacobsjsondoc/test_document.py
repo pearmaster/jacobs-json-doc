@@ -1,6 +1,7 @@
 import unittest
 
 from loader import PrepopulatedLoader
+from resolver import PassThroughResolver
 from document import Document, RefResolutionMode, DocReference, DocValue
 
 SIMPLE_YAML = """
@@ -41,36 +42,37 @@ class TestDocument(unittest.TestCase):
 
     def test_local_ref_use_reference_objects(self):
         ppl = PrepopulatedLoader()
-        ppl.prepopulate(None, YAML_WITH_REF)
-        doc = Document(uri=None, resolver=None, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
-        self.assertTrue(isinstance(doc['jacob']['local'], DocReference))
+        ppl.prepopulate("yaml_with_ref", YAML_WITH_REF)
+        doc = Document(uri="yaml_with_ref", resolver=None, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.assertIsInstance(doc['jacob']['local'], DocReference)
         node = doc['jacob']['local'].resolve()
-        self.assertTrue(isinstance(node, DocValue))
+        self.assertIsInstance(node, DocValue)
         self.assertEqual(node.value, "this is the value of the var")
 
     def test_local_ref_resolve_references(self):
         ppl = PrepopulatedLoader()
-        ppl.prepopulate(None, YAML_WITH_REF)
-        doc = Document(uri=None, resolver=None, loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
-        self.assertTrue(isinstance(doc['jacob']['local'], DocValue))
+        ppl.prepopulate("local", YAML_WITH_REF)
+        ppl.prepopulate("remote", SIMPLE_YAML)
+        doc = Document(uri="local", resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+        self.assertIsInstance(doc['jacob']['local'], DocValue)
         self.assertEqual(doc['jacob']['local'].value, "this is the value of the var")
 
     def test_remote_ref_use_reference_objects(self):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
-        doc = Document(uri="local", resolver=None, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
-        self.assertTrue(isinstance(doc['jacob']['remote'], DocReference))
+        doc = Document(uri="local", resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.assertIsInstance(doc['jacob']['remote'], DocReference)
         node = doc['jacob']['remote'].resolve()
-        self.assertTrue(isinstance(node, DocValue))
+        self.assertIsInstance(node, DocValue)
         self.assertEqual(node.value, "this is a foo string")
 
     def test_remote_ref_resolve_references(self):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
-        doc = Document(uri="local", resolver=None, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
-        self.assertTrue(isinstance(doc['jacob']['remote'], DocValue))
+        doc = Document(uri="local", resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+        self.assertIsInstance(doc['jacob']['remote'], DocValue)
         self.assertEqual(doc['jacob']['remote'].value, "this is a foo string")
 
 if __name__ == '__main__':

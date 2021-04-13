@@ -3,7 +3,7 @@
 # jacobs-json-doc
 A JSON/YAML loader for Python3.
 
-[PyYAML](https://pyyaml.org/) or [ruamel.yaml](https://sourceforge.net/projects/ruamel-yaml/) do a good job at parsing YAML or JSON into a Python object. This package wraps ruamel.yaml to provide a little but extra functionality.  
+[PyYAML](https://pyyaml.org/) or [ruamel.yaml](https://sourceforge.net/projects/ruamel-yaml/) do a good job at parsing YAML or JSON into a Python object. This package wraps ruamel.yaml to provide a little bit of extra functionality.  
 
 ### Line Numbers
 
