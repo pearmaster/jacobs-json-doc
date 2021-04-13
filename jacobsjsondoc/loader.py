@@ -21,9 +21,12 @@ class FilesystemLoader(LoaderBaseClass):
 
 class PrepopulatedLoader(LoaderBaseClass):
 
-    def __init__(self, text):
+    def __init__(self):
         super().__init__()
-        self._text = text
+        self._documents = {}
+
+    def prepopulate(self, uri, source):
+        self._documents[uri] = source
 
     def load(self, uri: str) -> str:
-        return self._text
+        return self._documents[uri]

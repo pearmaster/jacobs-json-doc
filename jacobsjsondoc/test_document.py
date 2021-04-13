@@ -29,20 +29,29 @@ jacob:
 class TestDocument(unittest.TestCase):
 
     def test_lines(self):
-        ppl = PrepopulatedLoader(SIMPLE_YAML)
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(None, SIMPLE_YAML)
         doc = Document(uri=None, resolver=None, loader=ppl)
         
         self.assertEqual(doc['jacob'].line, 2)
         self.assertEqual(doc['jacob']['brunson'].line, 3)
         self.assertEqual(doc['jacob']['brunson'][0].line, 3)
 
-    def test_local_ref(self):
-        ppl = PrepopulatedLoader(YAML_WITH_REF)
+    def test_local_ref_use_reference_objects(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(None, YAML_WITH_REF)
         doc = Document(uri=None, resolver=None, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
         self.assertTrue(isinstance(doc['jacob']['local'], DocReference))
         node = doc['jacob']['local'].resolve()
         self.assertTrue(isinstance(node, DocValue))
         self.assertEqual(node.value, "this is the value of the var")
+
+    def test_local_ref_resolve_references(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(None, YAML_WITH_REF)
+        doc = Document(uri=None, resolver=None, loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+        self.assertTrue(isinstance(doc['jacob']['local'], DocValue))
+        self.assertEqual(doc['jacob']['local'].value, "this is the value of the var")
 
 if __name__ == '__main__':
     unittest.main()
