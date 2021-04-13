@@ -13,6 +13,8 @@ jacob:
             nice guy
     food:
         true
+def:
+    foo: "this is a foo string"
 """
 
 YAML_WITH_REF = """
@@ -52,6 +54,24 @@ class TestDocument(unittest.TestCase):
         doc = Document(uri=None, resolver=None, loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
         self.assertTrue(isinstance(doc['jacob']['local'], DocValue))
         self.assertEqual(doc['jacob']['local'].value, "this is the value of the var")
+
+    def test_remote_ref_use_reference_objects(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("local", YAML_WITH_REF)
+        ppl.prepopulate("remote", SIMPLE_YAML)
+        doc = Document(uri="local", resolver=None, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.assertTrue(isinstance(doc['jacob']['remote'], DocReference))
+        node = doc['jacob']['remote'].resolve()
+        self.assertTrue(isinstance(node, DocValue))
+        self.assertEqual(node.value, "this is a foo string")
+
+    def test_remote_ref_resolve_references(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("local", YAML_WITH_REF)
+        ppl.prepopulate("remote", SIMPLE_YAML)
+        doc = Document(uri="local", resolver=None, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.assertTrue(isinstance(doc['jacob']['remote'], DocValue))
+        self.assertEqual(doc['jacob']['remote'].value, "this is a foo string")
 
 if __name__ == '__main__':
     unittest.main()
