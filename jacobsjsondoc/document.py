@@ -11,17 +11,23 @@ class RefResolutionMode(Enum):
     RESOLVE_REFERENCES = 1
 
 
-class PathReferenceResolutionError(Exception):
+class ReferenceResolutionError(Exception):
+    pass
+
+class PathReferenceResolutionError(ReferenceResolutionError):
 
     def __init__(self, doc, path):
         super().__init__(f"Could not resolve path: '{path}' from {doc.uri}")
 
+
+class CircularDependencyError(ReferenceResolutionError):
+    def __init__(self, uri):
+        super().__init__(f"Circular dependency detected when trying to load '{uri}' a second time")
 class DocElement:
 
     def __init__(self, doc_root, line: int):
         self._line = line
         self._doc_root = doc_root
-        self._is_ref = False
 
     @property
     def line(self) -> int:
@@ -32,12 +38,12 @@ class DocElement:
         self._line = value
 
     @property
-    def root(self):
-        return self._doc_root
+    def uri_line(self):
+        return f"{self.root.uri}:{self.line}"
 
     @property
-    def is_ref(self):
-        self._is_ref
+    def root(self):
+        return self._doc_root
 
     def construct(self, data, parent, idx=None):
         if isinstance(data, dict):
@@ -99,10 +105,6 @@ class DocReference(DocElement):
         self._reference = reference
 
     @property
-    def is_ref(self):
-        return True
-
-    @property
     def reference(self):
         return self._reference
 
@@ -110,14 +112,8 @@ class DocReference(DocElement):
         href, path = self._reference.split('#')
         doc = self.root
         if len(href) > 0:
-            try:
-                uri = self.root.resolve_uri(href)
-            except:
-                raise Exception(f"Could not resolve '{href}'")
-            try:
-                doc = self.root.get_doc(uri)
-            except:
-                raise Exception(f"Could not create document '{href}'")
+            uri = self.root.resolve_uri(href)
+            doc = self.root.get_doc(uri)
         node = doc.get_node(path)
         return node
 
@@ -179,19 +175,20 @@ class Document(DocObject):
 
 
 class DocumentCache(object):
+    _cache = {}
+    _loading = set()
 
     def __init__(self, resolver, loader, ref_resolution_mode):
-        self._cache = {}
         self._resolver = resolver
         self._loader = loader
         self._ref_resolution_mode = ref_resolution_mode
     
     def get_doc(self, uri):
+        if uri in self._loading:
+            raise CircularDependencyError(uri)
         if uri not in self._cache:
+            self._loading.add(uri)
             doc = Document(uri, self._resolver, self._loader, ref_resolution=self._ref_resolution_mode)
             self._cache[uri] = doc
+            self._loading.remove(uri)
         return self._cache[uri]
-
-# TODO: DocumentCache should be a singleton (only ever one instance)
-# TODO: detect circular references
-# TODO: better exception raising
