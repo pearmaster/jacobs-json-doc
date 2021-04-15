@@ -12,7 +12,7 @@ jobs:
             pipenv install dist/jacobs_json_doc-0.1.0-py3-none-any.whl
       - run:
           command: |  # Run test suite
-            python -m unittest discover
+            pipenv run python -m unittest discover
   test_pypi_publish:
     docker:
       - image: circleci/python:3
