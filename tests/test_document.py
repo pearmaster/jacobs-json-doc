@@ -1,8 +1,8 @@
 import unittest
 
-from loader import PrepopulatedLoader
-from resolver import PassThroughResolver
-from document import Document, RefResolutionMode, DocReference, DocValue, DocObject, CircularDependencyError
+from jacobsjsondoc.loader import PrepopulatedLoader
+from jacobsjsondoc.resolver import PassThroughResolver
+from jacobsjsondoc.document import Document, RefResolutionMode, DocReference, DocValue, DocObject, CircularDependencyError
 
 SIMPLE_YAML = """
 jacob:

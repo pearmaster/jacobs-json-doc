@@ -1,9 +1,9 @@
 
 from collections import UserDict, UserList
 from enum import Enum
-from loader import LoaderBaseClass
-from parser import Parser
-from resolver import ResolverBaseClass
+from .loader import LoaderBaseClass
+from .parser import Parser
+from .resolver import ResolverBaseClass
 
 
 class RefResolutionMode(Enum):
