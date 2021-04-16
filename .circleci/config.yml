@@ -8,11 +8,12 @@ jobs:
       - run:
           command: |  # create whl and use pipenv to install dependencies
             python setup.py sdist bdist_wheel
-            sudo pip install pipenv
+            sudo pip install pipenv coveralls
             pipenv install dist/jacobs_json_doc-0.1.0-py3-none-any.whl
       - run:
           command: |  # Run test suite
-            pipenv run python -m unittest discover
+            pipenv run coverage -m unittest discover
+            pipenv run coveralls
   test_pypi_publish:
     docker:
       - image: circleci/python:3
