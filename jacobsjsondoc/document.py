@@ -23,6 +23,8 @@ class PathReferenceResolutionError(ReferenceResolutionError):
 class CircularDependencyError(ReferenceResolutionError):
     def __init__(self, uri):
         super().__init__(f"Circular dependency detected when trying to load '{uri}' a second time")
+
+
 class DocElement:
 
     def __init__(self, doc_root, line: int):
@@ -62,7 +64,7 @@ class DocElement:
         else:
             if idx is not None:
                 if isinstance(parent, dict):
-                    dv = DocValue(data, self.root, parent.lc.value(idx)[0])
+                    dv = DocValue.factory(data, self.root, parent.lc.value(idx)[0])
                     dv.set_key(idx, parent.lc.key(idx)[0])
                     return dv
                 elif isinstance(parent, list):
@@ -120,7 +122,7 @@ class DocReference(DocElement):
 class DocValue(DocElement):
 
     def __init__(self, value, doc_root, line: int):
-        super().__init__(doc_root, line)
+        DocElement.__init__(self, doc_root, line)
         self.data = value
         self.key = None
         self.key_line = None
@@ -137,6 +139,38 @@ class DocValue(DocElement):
         if isinstance(self.data, str):
             return f'"{self.data}"'
         return str(self.data)
+
+    @staticmethod
+    def factory(value, doc_root, line: int):
+        if isinstance(value, int):
+            return DocInteger(value, doc_root, line)
+        return DocValue(value, doc_root, line)
+
+
+class DocInteger(DocValue, int):
+
+    def __new__(cls, value: int, doc_root, line: int):
+        di = int.__new__(DocInteger, value)
+        di.__init__(value, doc_root, line)
+        return di
+
+    def __init__(self, value: int, doc_root, line: int):
+        DocValue.__init__(self, value, doc_root, line)
+
+
+class DocFloat(DocValue, float):
+
+    def __init__(self, value: float, doc_root, line: int):
+        DocValue.__init__(self, value, doc_root, line)
+        float.__init__(value)
+
+
+class DocString(DocValue, str):
+
+    def __init__(self, value: str, doc_root, line: int):
+        DocValue.__init__(self, value, doc_root, line)
+        str.__init__(value)
+
 
 class Document(DocObject):
 

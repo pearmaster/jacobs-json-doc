@@ -1,5 +1,5 @@
 import unittest
-
+from collections import UserDict
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.resolver import PassThroughResolver
 from jacobsjsondoc.document import Document, RefResolutionMode, DocReference, DocValue, DocObject, CircularDependencyError
@@ -33,6 +33,17 @@ colorado:
     springs: 
         $ref: "middle#/house"
 """
+
+YAML_TYPES = """
+myobject:
+    myint: 10
+    myfloat: 3.14159
+    mystring: string
+    mytrue: true
+    myfalse: false
+    mynull: null
+"""
+
 
 class TestDocument(unittest.TestCase):
 
@@ -111,6 +122,22 @@ class TestDocument(unittest.TestCase):
         ppl.prepopulate("two", yaml2)
         with self.assertRaises(CircularDependencyError):
             doc = Document(uri="one", resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+
+
+class TestDocumentTypes(unittest.TestCase):
+
+    def setUp(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(None, YAML_TYPES)
+        self.doc = Document(uri=None, resolver=None, loader=ppl)
+
+    def test_userdict(self):
+        self.assertIsInstance(self.doc['myobject'], UserDict)
+
+    def test_integer(self):
+        self.assertEqual(self.doc['myobject']['myint'], 10)
+        self.assertIsInstance(self.doc['myobject']['myint'], int)
+        self.assertEqual(self.doc['myobject']['myint'].line, 2)
 
 if __name__ == '__main__':
     unittest.main()
