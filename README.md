@@ -1,4 +1,5 @@
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/pearmaster/jacobs-json-doc)
+[![Coverage Status](https://coveralls.io/repos/github/pearmaster/jacobs-json-doc/badge.svg?branch=master)](https://coveralls.io/github/pearmaster/jacobs-json-doc?branch=master)
 
 # jacobs-json-doc
 A JSON/YAML loader for Python3.
