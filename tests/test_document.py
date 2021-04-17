@@ -139,5 +139,28 @@ class TestDocumentTypes(unittest.TestCase):
         self.assertIsInstance(self.doc['myobject']['myint'], int)
         self.assertEqual(self.doc['myobject']['myint'].line, 2)
 
+    def test_float(self):
+        self.assertEqual(self.doc['myobject']['myfloat'], 3.14159)
+        self.assertIsInstance(self.doc['myobject']['myfloat'], float)
+        self.assertEqual(self.doc['myobject']['myfloat'].line, 3)
+
+    def test_string(self):
+        self.assertEqual(self.doc['myobject']['mystring'], "string")
+        self.assertIsInstance(self.doc['myobject']['mystring'], str)
+        self.assertEqual(self.doc['myobject']['mystring'].line, 4)
+
+    def test_boolean_true(self):
+        self.assertEqual(self.doc['myobject']['mytrue'], True)
+        self.assertEqual(self.doc['myobject']['mytrue'].line, 5)
+
+    def test_boolean_false(self):
+        self.assertEqual(self.doc['myobject']['myfalse'], False)
+        self.assertEqual(self.doc['myobject']['myfalse'].line, 6)
+
+    def test_null(self):
+        self.assertEqual(self.doc['myobject']['mynull'].value, None)
+        self.assertIsInstance(self.doc['myobject']['mynull'].value, type(None))
+        self.assertEqual(self.doc['myobject']['mynull'].line, 7)
+
 if __name__ == '__main__':
     unittest.main()
