@@ -9,6 +9,7 @@ setup(
     version=_version.__version__,
     description='A JSON/YAML loader',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     author="Jacob Brunson",
     author_email="pypi@jacobbrunson.com",
     url="https://github.com/pearmaster/jacobs-json-doc",
