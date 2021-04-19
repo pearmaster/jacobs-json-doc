@@ -13,7 +13,7 @@ jobs:
             pipenv install dist/jacobs_json_doc-0.2.0-py3-none-any.whl
       - run:
           command: |  # Run test suite
-            mkdir -P /tmp/testresults
+            mkdir -p /tmp/testresults
             pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
             pipenv run coveralls
       - store_test_results:
