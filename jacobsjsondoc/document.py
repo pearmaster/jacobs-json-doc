@@ -144,6 +144,14 @@ class DocValue(DocElement):
     def factory(value, doc_root, line: int):
         if isinstance(value, int):
             return DocInteger(value, doc_root, line)
+        elif isinstance(value, float):
+            return DocFloat(value, doc_root, line)
+        elif isinstance(value, str):
+            return DocString(value, doc_root, line)
+        elif isinstance(value, bool):
+            return DocBoolean(value, doc_root, line)
+        elif value is None:
+            return DocNull(None, doc_root, line)
         return DocValue(value, doc_root, line)
 
 
@@ -160,17 +168,39 @@ class DocInteger(DocValue, int):
 
 class DocFloat(DocValue, float):
 
+    def __new__(cls, value: float, doc_root, line: int):
+        df = float.__new__(DocFloat, value)
+        df.__init__(value, doc_root, line)
+        return df
+
     def __init__(self, value: float, doc_root, line: int):
         DocValue.__init__(self, value, doc_root, line)
-        float.__init__(value)
 
 
 class DocString(DocValue, str):
 
+    def __new__(cls, value: str, doc_root, line: int):
+        ds = str.__new__(DocString, value)
+        ds.__init__(value, doc_root, line)
+        return ds
+
     def __init__(self, value: str, doc_root, line: int):
         DocValue.__init__(self, value, doc_root, line)
-        str.__init__(value)
 
+
+class DocBoolean(DocValue, int):
+
+    def __new__(cls, value: bool, doc_root, line: int):
+        db = bool.__new__(DocString, value)
+        db.__init__(value, doc_root, line)
+        return db
+
+    def __init__(self, value: bool, doc_root, line: int):
+        DocValue.__init__(self, value, doc_root, line)
+
+
+class DocNull(DocValue):
+    pass
 
 class Document(DocObject):
 
