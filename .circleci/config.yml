@@ -10,7 +10,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls
-            pipenv install dist/jacobs_json_doc-0.1.0-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.2.0-py3-none-any.whl
       - run:
           command: |  # Run test suite
             pipenv run coverage run --source=jacobsjsondoc -m unittest discover
