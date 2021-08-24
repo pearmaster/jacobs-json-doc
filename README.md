@@ -32,4 +32,26 @@ Given a resolver and loader, jacobs-json-doc can deal with dollar references.  T
  * Use `DocReference` objects.  Anywhere in the document tree where there is a `$ref` reference, a `DocReference` object is created.  That object has methods to resolve and load the references on demand, when needed.
  * Automatic resolution.  Anywhere in the document tree where there is a `$ref` reference, the reference is automatically resolved and the `$ref`s are replaced with the structures that they were referencing.
  
+## Examples
+
+The [test_document.py](./tests/test_document.py) file is a good source for examples.
+
+A very brief example is:
+
+```py
+from jacobsjsondoc.loader import FilesystemLoader
+from jacobsjsondoc.resolver import FilesystemResolver
+from jacobsjsondoc.document import Document, RefResolutionMode
+
+my_document = "/path/to/example.yaml"
+loader = FilesystemLoader()
+resolver = FilesystemResolver()
+doc = Document(uri=my_document, resolver=resolver, loader=loader)
+print(doc['a']['b'])
+print(doc['a']['b'].line)
+```
+
+## License
+
+[GPLv2](./LICENSE)
 
