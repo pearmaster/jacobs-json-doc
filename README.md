@@ -51,6 +51,14 @@ print(doc['a']['b'])
 print(doc['a']['b'].line)
 ```
 
+If you are loading a single bit of data, without any `$ref` references, you can do it like this:
+
+```py
+import jacobsjsondoc
+text_data = '{"hello":"world"}'
+doc = jacobsjsondoc.parse(text_data)
+```
+
 ## License
 
 [GPLv2](./LICENSE)
