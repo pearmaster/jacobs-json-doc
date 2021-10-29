@@ -4,7 +4,7 @@ from enum import Enum
 from .loader import LoaderBaseClass
 from .parser import Parser
 from .resolver import ResolverBaseClass
-
+from .reference import ReferenceDictionary, JsonReference
 
 class RefResolutionMode(Enum):
     USE_REFERENCES_OBJECTS = 0
@@ -47,19 +47,22 @@ class DocElement:
     def root(self):
         return self._doc_root
 
-    def construct(self, data, parent, idx=None):
+    def construct(self, data, parent, idx=None, dollar_id=None):
+        if dollar_id is None:
+            dollar_id = JsonReference.empty()
+
         if isinstance(data, dict):
             if len(data) == 1 and '$ref' in data:
                 dref = DocReference(data['$ref'], self.root, data.lc.line)
                 return dref
-            dobj = DocObject(data, self.root, data.lc.line)
-            for k, v in data.items():
-                dobj[k] = self.construct(v, data, k)
+            dobj = DocObject(data, self.root, data.lc.line, dollar_id=dollar_id)
+            #for k, v in data.items():
+            #    dobj[k] = self.construct(data=v, parent=data, idx=k, dollar_id=dollar_id)
             return dobj
         elif isinstance(data, list):
-            da = DocArray(data, self.root, data.lc.line)
-            for i, v in enumerate(data):
-                da.append(self.construct(v, data, i))
+            da = DocArray(data, self.root, data.lc.line, dollar_id=dollar_id)
+            #for i, v in enumerate(data):
+            #    da.append(self.construct(data=v, parent=data, idx=i, dollar_id=dollar_id))
             return da
         else:
             if idx is not None:
@@ -75,13 +78,25 @@ class DocElement:
                 return DocValue(data, self.root, line=None)
 
 
-class DocObject(DocElement, UserDict):
-    
-    def __init__(self, data: dict, doc_root, line: int):
+class DocContainer(DocElement):
+
+    def __init__(self, doc_root, line: int, dollar_id=None):
+        if dollar_id is None:
+            dollar_id = JsonReference.empty()
+        self._dollar_id = dollar_id
         super().__init__(doc_root, line)
+
+
+class DocObject(DocContainer, UserDict):
+    
+    def __init__(self, data: dict, doc_root, line: int, dollar_id=None):
+        super().__init__(doc_root, line, dollar_id)
+        if self.root._dollar_id_token in data:
+            self._dollar_id.change_to(data[self.root._dollar_id_token])
+            self.root._ref_dictionary.put(self._dollar_id.uri, self)
         self.data = {}
         for k, v in data.items():
-            self.data[k] = self.construct(v, data, k)
+            self.data[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
 
     def resolve_references(self):
         for k, v in self.data.items():
@@ -91,13 +106,13 @@ class DocObject(DocElement, UserDict):
                 v.resolve_references()
 
 
-class DocArray(DocElement, UserList):
+class DocArray(DocContainer, UserList):
 
-    def __init__(self, data: list, doc_root, line: int):
-        super().__init__(doc_root, line)
+    def __init__(self, data: list, doc_root, line: int, dollar_id=None):
+        super().__init__(doc_root, line, dollar_id)
         self.data = []
         for i, v in enumerate(data):
-            self.data.append(self.construct(v, data, i))
+            self.data.append(self.construct(data=v, parent=data, idx=i, dollar_id=self._dollar_id.copy()))
 
 
 class DocReference(DocElement):
@@ -204,7 +219,8 @@ class DocNull(DocValue):
 
 class Document(DocObject):
 
-    def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS):
+    def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
+        self._dollar_id_token = dollar_id_token
         self._ref_resolution_mode=ref_resolution
         self._uri = uri
         self._resolver = resolver
@@ -212,7 +228,12 @@ class Document(DocObject):
         self.parser = Parser()
         self._doc_cache = DocumentCache(self._resolver, self._loader, self._ref_resolution_mode)
         structure = self.parser.parse_yaml(loader.load(self._uri))
-        super().__init__(structure, self, 0)
+        new_dollar_id = JsonReference.empty()
+        if self._dollar_id_token in structure:
+            uri = structure[self._dollar_id_token]
+            new_dollar_id = JsonReference.from_string(uri)
+        self._ref_dictionary = ReferenceDictionary()
+        super().__init__(structure, self, 0, dollar_id=new_dollar_id)
         if self._ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
             self.resolve_references()
 
