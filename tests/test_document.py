@@ -54,6 +54,7 @@ class TestDocument(unittest.TestCase):
         
         self.assertEqual(doc['jacob'].line, 2)
         self.assertEqual(doc['jacob']['brunson'].line, 3)
+        self.assertEquals(doc['jacob']['brunson'][0].value, 1)
         self.assertEqual(doc['jacob']['brunson'][0].line, 3)
 
     def test_local_ref_use_reference_objects(self):

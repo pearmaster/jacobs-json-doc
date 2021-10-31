@@ -10,7 +10,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.3.0-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.4.0-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -50,7 +50,7 @@ workflows:
           filters:
             branches:
               only:
-                - develop
+                - next
       - pypi_publish:
           requires:
             - build_test
