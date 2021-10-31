@@ -1,7 +1,7 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonReference, ReferenceDictionary
-from jacobsjsondoc.document import Document, RefResolutionMode
+from jacobsjsondoc.document import create_document, RefResolutionMode
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.resolver import PassThroughResolver
 import json
@@ -84,7 +84,7 @@ class TestIdTagging(unittest.TestCase):
         self.data = SAMPLE_DOCUMENT
         ppl = PrepopulatedLoader()
         ppl.prepopulate(self.data["$id"], json.dumps(self.data))
-        self.doc = Document(uri=self.data["$id"], resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.doc = create_document(uri=self.data["$id"], resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
     
     def test_root_has_correct_id(self):
         self.assertEquals(self.doc._dollar_id.uri, self.data["$id"])

@@ -1,5 +1,5 @@
 try:
-    from .document import Document
+    from .document import create_document
 except ModuleNotFoundError:
     import sys
     if 'setup' not in sys.modules['__main__'].__file__:
@@ -14,5 +14,5 @@ from .loader import PrepopulatedLoader
 def parse(text_data):
     ppl = PrepopulatedLoader()
     ppl.prepopulate(None, text_data)
-    doc = Document(uri=None, resolver=None, loader=ppl)
+    doc = create_document(uri=None, resolver=None, loader=ppl)
     return doc

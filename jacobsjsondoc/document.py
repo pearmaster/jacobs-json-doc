@@ -217,47 +217,57 @@ class DocBoolean(DocValue, int):
 class DocNull(DocValue):
     pass
 
-class Document(DocObject):
 
-    def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
-        self._dollar_id_token = dollar_id_token
-        self._ref_resolution_mode=ref_resolution
-        self._uri = uri
-        self._resolver = resolver
-        self._loader = loader
-        self.parser = Parser()
-        self._doc_cache = DocumentCache(self._resolver, self._loader, self._ref_resolution_mode)
-        structure = self.parser.parse_yaml(loader.load(self._uri))
-        self._ref_dictionary = ReferenceDictionary()
-        new_dollar_id = JsonReference.empty()
-        if self._dollar_id_token in structure:
-            uri = structure[self._dollar_id_token]
-            new_dollar_id = JsonReference.from_string(uri)
-            self._ref_dictionary.put(new_dollar_id, self)
-        super().__init__(structure, self, 0, dollar_id=new_dollar_id)
-        if self._ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
-            self.resolve_references()
+def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
 
-    @property
-    def uri(self):
-        return self._uri
+    parser = Parser()
+    structure = parser.parse_yaml(loader.load(uri))
+    base_class = DocObject
+    if isinstance(structure, list):
+        base_class = DocArray
 
-    def resolve_uri(self, href):
-        return self._resolver.resolve(self._uri, href)
+    class Document(base_class):
 
-    def get_node(self, path):
-        path_parts = [ p for p in path.split('/') if len(p) > 0 ]
-        node = self
-        for part in path_parts:
-            try:
-                node = node[part]
-            except KeyError:
-                raise PathReferenceResolutionError(self, path)
-        return node
+        def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
+            self._dollar_id_token = dollar_id_token
+            self._ref_resolution_mode=ref_resolution
+            self._uri = uri
+            self._resolver = resolver
+            self._loader = loader
+            self.parser = Parser()
+            self._doc_cache = DocumentCache(self._resolver, self._loader, self._ref_resolution_mode)
+            structure = self.parser.parse_yaml(loader.load(self._uri))
+            self._ref_dictionary = ReferenceDictionary()
+            new_dollar_id = JsonReference.empty()
+            if self._dollar_id_token in structure:
+                uri = structure[self._dollar_id_token]
+                new_dollar_id = JsonReference.from_string(uri)
+                self._ref_dictionary.put(new_dollar_id, self)
+            super().__init__(structure, self, 0, dollar_id=new_dollar_id)
+            if self._ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
+                self.resolve_references()
 
-    def get_doc(self, uri):
-        return self._doc_cache.get_doc(uri)
+        @property
+        def uri(self):
+            return self._uri
 
+        def resolve_uri(self, href):
+            return self._resolver.resolve(self._uri, href)
+
+        def get_node(self, path):
+            path_parts = [ p for p in path.split('/') if len(p) > 0 ]
+            node = self
+            for part in path_parts:
+                try:
+                    node = node[part]
+                except KeyError:
+                    raise PathReferenceResolutionError(self, path)
+            return node
+
+        def get_doc(self, uri):
+            return self._doc_cache.get_doc(uri)
+
+    return Document(uri, resolver, loader, ref_resolution, dollar_id_token)
 
 
 class DocumentCache(object):
@@ -274,7 +284,7 @@ class DocumentCache(object):
             raise CircularDependencyError(uri)
         if uri not in self._cache:
             self._loading.add(uri)
-            doc = Document(uri, self._resolver, self._loader, ref_resolution=self._ref_resolution_mode)
+            doc = create_document(uri, self._resolver, self._loader, ref_resolution=self._ref_resolution_mode)
             self._cache[uri] = doc
             self._loading.remove(uri)
         return self._cache[uri]
