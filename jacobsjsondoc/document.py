@@ -93,7 +93,7 @@ class DocObject(DocContainer, UserDict):
         super().__init__(doc_root, line, dollar_id)
         if self.root._dollar_id_token in data:
             self._dollar_id.change_to(data[self.root._dollar_id_token])
-            self.root._ref_dictionary.put(self._dollar_id.uri, self)
+            self.root._ref_dictionary.put(self._dollar_id, self)
         self.data = {}
         for k, v in data.items():
             self.data[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
@@ -228,11 +228,12 @@ class Document(DocObject):
         self.parser = Parser()
         self._doc_cache = DocumentCache(self._resolver, self._loader, self._ref_resolution_mode)
         structure = self.parser.parse_yaml(loader.load(self._uri))
+        self._ref_dictionary = ReferenceDictionary()
         new_dollar_id = JsonReference.empty()
         if self._dollar_id_token in structure:
             uri = structure[self._dollar_id_token]
             new_dollar_id = JsonReference.from_string(uri)
-        self._ref_dictionary = ReferenceDictionary()
+            self._ref_dictionary.put(new_dollar_id, self)
         super().__init__(structure, self, 0, dollar_id=new_dollar_id)
         if self._ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
             self.resolve_references()

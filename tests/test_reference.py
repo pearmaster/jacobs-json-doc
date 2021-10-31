@@ -6,6 +6,26 @@ from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.resolver import PassThroughResolver
 import json
 
+SAMPLE_DOCUMENT = {
+    "$id": "http://example.com/schema.json",
+    "type": "object",
+    "properties": {
+        "foo": {
+            "$ref": "#fooprop",
+        },
+        "bar": {
+            "$id": "#barprop",
+            "type": "integer",
+        }
+    },
+    "objects": {
+        "fooProperty": {
+            "$id": "#fooprop",
+            "type": "string",
+        }
+    }
+}
+
 class TestJsonReferenceObject(unittest.TestCase):
 
     def test_reference_from_uri(self):
@@ -37,7 +57,7 @@ class TestJsonReferenceObject(unittest.TestCase):
 class TestReferenceDictionary(unittest.TestCase):
 
     def setUp(self):
-        self.data = {
+        self.data1 = {
             "A": {
                 "B": 1,
                 "C": [2,3,4,5]
@@ -48,38 +68,20 @@ class TestReferenceDictionary(unittest.TestCase):
     def test_reference_lookup(self):
         source_uri = "example"
         rd = ReferenceDictionary()
-        rd.put(source_uri, self.data)
+        rd.put(source_uri, self.data1)
         ref = JsonReference.from_string(source_uri)
         node_out = rd[ref]
-        self.assertEqual(self.data, node_out)
+        self.assertEqual(self.data1, node_out)
         ref.change_to(JsonReference.from_string("#A/B"))
-        rd[ref] = self.data['A']['B']
+        rd[ref] = self.data1['A']['B']
         fragment_uri = "example#A/B"
         self.assertEqual(rd.get(fragment_uri), 1)
+
 
 class TestIdTagging(unittest.TestCase):
 
     def setUp(self):
-        self.data = {
-            "$id": "http://example.com/schema.json",
-            "type": "object",
-            "properties": {
-                "foo": {
-                    "$ref": "#fooprop",
-                },
-                "bar": {
-                    "$id": "#barprop",
-                    "type": "integer",
-                }
-            },
-            "objects": {
-                "fooProperty": {
-                    "$id": "#fooprop",
-                    "type": "string",
-                }
-            }
-        }
-
+        self.data = SAMPLE_DOCUMENT
         ppl = PrepopulatedLoader()
         ppl.prepopulate(self.data["$id"], json.dumps(self.data))
         self.doc = Document(uri=self.data["$id"], resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
@@ -90,4 +92,15 @@ class TestIdTagging(unittest.TestCase):
     def test_bar_has_correct_id(self):
         self.assertEquals(self.doc['properties']['bar']._dollar_id, "http://example.com/schema.json#barprop")
 
+    def test_fooproperty_has_correct_id(self):
+        self.assertEquals(self.doc['objects']['fooProperty']._dollar_id, "http://example.com/schema.json#fooprop")
+
+    def test_dictionary_contents(self):
+        print(self.doc._ref_dictionary)
+        self.assertEqual(len(self.doc._ref_dictionary), 3)
+
+    def test_dictionary_has_barprop(self):
+        barprop = self.doc._ref_dictionary.get("http://example.com/schema.json#barprop")
+        self.assertEquals(barprop['$id'], "#barprop")
+        self.assertEquals(barprop['type'], "integer")
     

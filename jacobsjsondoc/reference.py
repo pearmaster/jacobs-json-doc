@@ -12,7 +12,9 @@ class JsonReference:
     
     @property
     def uri(self):
-        return f"{self.scheme}://{self.netloc}{self.path}"
+        if self.scheme and self.netloc:
+            return f"{self.scheme}://{self.netloc}{self.path}"
+        return self.path
     
     @classmethod
     def from_url_parsed_result(cls, result:UrlParseResult):
@@ -28,7 +30,10 @@ class JsonReference:
         return cls('', '', '', '')
 
     def __repr__(self):
-        return f"{self.uri}#{self.fragment}"
+        fragment = f"#{self.fragment}" if self.fragment else ""
+        if self.path:
+            return f"{self.uri}{fragment}"
+        return fragment
 
     def copy(self):
         return self.__class__(self.scheme, self.netloc, self.path, self.fragment)
@@ -62,10 +67,9 @@ class JsonReference:
 
 class ReferenceDictionary(UserDict):
     
-    def get(self, uri:str):
-        ref = JsonReference.from_string(uri)
-        return self[ref]
+    def get(self, dollar_id:JsonReference):
+        return self[dollar_id]
 
-    def put(self, uri:str, node):
-        self[JsonReference.from_string(uri)] = node
+    def put(self, dollar_id:JsonReference, node):
+        self[dollar_id] = node
         return self
