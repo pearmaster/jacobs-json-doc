@@ -18,6 +18,10 @@ def:
     foo: "this is a foo string"
 """
 
+SIMPLE_WITH_INTEGER = """
+thevalue: 42
+"""
+
 YAML_WITH_REF = """
 house:
     var: "this is the value of the var"
@@ -133,7 +137,7 @@ class TestDocumentTypes(unittest.TestCase):
         self.doc = create_document(uri=None, resolver=None, loader=ppl)
 
     def test_userdict(self):
-        self.assertIsInstance(self.doc['myobject'], UserDict)
+        self.assertIsInstance(self.doc['myobject'], dict)
 
     def test_integer(self):
         self.assertEqual(self.doc['myobject']['myint'], 10)
@@ -159,9 +163,18 @@ class TestDocumentTypes(unittest.TestCase):
         self.assertEqual(self.doc['myobject']['myfalse'].line, 6)
 
     def test_null(self):
-        self.assertEqual(self.doc['myobject']['mynull'].value, None)
-        self.assertIsInstance(self.doc['myobject']['mynull'].value, type(None))
-        self.assertEqual(self.doc['myobject']['mynull'].line, 7)
+        self.assertEqual(self.doc['myobject']['mynull'], None)
+        self.assertIsInstance(self.doc['myobject']['mynull'], type(None))
+
+class TestDocumentSimpleTypes(unittest.TestCase):
+
+    def test_integer(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(None, SIMPLE_WITH_INTEGER)
+        self.doc = create_document(uri=None, resolver=None, loader=ppl)
+        self.assertEqual(self.doc['thevalue'], 42)
+        self.assertIsInstance(self.doc['thevalue'], int)
+        self.assertEqual(self.doc['thevalue'].line, 1)
 
 if __name__ == '__main__':
     unittest.main()

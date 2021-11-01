@@ -1,5 +1,4 @@
 
-from collections import UserDict, UserList
 from enum import Enum
 from .loader import LoaderBaseClass
 from .parser import Parser
@@ -52,7 +51,7 @@ class DocElement:
             dollar_id = JsonReference.empty()
 
         if isinstance(data, dict):
-            if len(data) == 1 and '$ref' in data:
+            if '$ref' in data:
                 dref = DocReference(data['$ref'], self.root, data.lc.line)
                 return dref
             dobj = DocObject(data, self.root, data.lc.line, dollar_id=dollar_id)
@@ -68,11 +67,13 @@ class DocElement:
             if idx is not None:
                 if isinstance(parent, dict):
                     dv = DocValue.factory(data, self.root, parent.lc.value(idx)[0])
-                    dv.set_key(idx, parent.lc.key(idx)[0])
+                    if dv is not None:
+                        dv.set_key(idx, parent.lc.key(idx)[0])
                     return dv
                 elif isinstance(parent, list):
-                    dv = DocValue(data, self.root, parent.lc.item(idx)[0])
-                    dv.set_key(idx, parent.lc.item(idx)[0])
+                    dv = DocValue.factory(data, self.root, parent.lc.item(idx)[0])
+                    if dv is not None:
+                        dv.set_key(idx, parent.lc.item(idx)[0])
                     return dv
             else:
                 return DocValue(data, self.root, line=None)
@@ -87,32 +88,30 @@ class DocContainer(DocElement):
         super().__init__(doc_root, line)
 
 
-class DocObject(DocContainer, UserDict):
+class DocObject(DocContainer, dict):
     
     def __init__(self, data: dict, doc_root, line: int, dollar_id=None):
         super().__init__(doc_root, line, dollar_id)
         if self.root._dollar_id_token in data:
             self._dollar_id.change_to(data[self.root._dollar_id_token])
             self.root._ref_dictionary.put(self._dollar_id, self)
-        self.data = {}
         for k, v in data.items():
-            self.data[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
+            self[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
 
     def resolve_references(self):
-        for k, v in self.data.items():
+        for k, v in self.items():
             if isinstance(v, DocReference):
-                self.data[k] = v.resolve()
+                self[k] = v.resolve()
             elif isinstance(v, DocObject):
                 v.resolve_references()
 
 
-class DocArray(DocContainer, UserList):
+class DocArray(DocContainer, list):
 
     def __init__(self, data: list, doc_root, line: int, dollar_id=None):
         super().__init__(doc_root, line, dollar_id)
-        self.data = []
         for i, v in enumerate(data):
-            self.data.append(self.construct(data=v, parent=data, idx=i, dollar_id=self._dollar_id.copy()))
+            self.append(self.construct(data=v, parent=data, idx=i, dollar_id=self._dollar_id.copy()))
 
 
 class DocReference(DocElement):
@@ -166,7 +165,7 @@ class DocValue(DocElement):
         elif isinstance(value, bool):
             return DocBoolean(value, doc_root, line)
         elif value is None:
-            return DocNull(None, doc_root, line)
+            return None
         return DocValue(value, doc_root, line)
 
 
@@ -212,10 +211,6 @@ class DocBoolean(DocValue, int):
 
     def __init__(self, value: bool, doc_root, line: int):
         DocValue.__init__(self, value, doc_root, line)
-
-
-class DocNull(DocValue):
-    pass
 
 
 def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
