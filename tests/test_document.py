@@ -156,11 +156,9 @@ class TestDocumentTypes(unittest.TestCase):
 
     def test_boolean_true(self):
         self.assertEqual(self.doc['myobject']['mytrue'], True)
-        self.assertEqual(self.doc['myobject']['mytrue'].line, 5)
 
     def test_boolean_false(self):
         self.assertEqual(self.doc['myobject']['myfalse'], False)
-        self.assertEqual(self.doc['myobject']['myfalse'].line, 6)
 
     def test_null(self):
         self.assertEqual(self.doc['myobject']['mynull'], None)

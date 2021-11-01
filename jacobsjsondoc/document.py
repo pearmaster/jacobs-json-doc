@@ -67,12 +67,12 @@ class DocElement:
             if idx is not None:
                 if isinstance(parent, dict):
                     dv = DocValue.factory(data, self.root, parent.lc.value(idx)[0])
-                    if dv is not None:
+                    if dv is not None and not isinstance(dv, bool):
                         dv.set_key(idx, parent.lc.key(idx)[0])
                     return dv
                 elif isinstance(parent, list):
                     dv = DocValue.factory(data, self.root, parent.lc.item(idx)[0])
-                    if dv is not None:
+                    if dv is not None and not isinstance(dv, bool):
                         dv.set_key(idx, parent.lc.item(idx)[0])
                     return dv
             else:
@@ -156,14 +156,14 @@ class DocValue(DocElement):
 
     @staticmethod
     def factory(value, doc_root, line: int):
-        if isinstance(value, int):
+        if isinstance(value, bool):
+            return value
+        elif isinstance(value, int):
             return DocInteger(value, doc_root, line)
         elif isinstance(value, float):
             return DocFloat(value, doc_root, line)
         elif isinstance(value, str):
             return DocString(value, doc_root, line)
-        elif isinstance(value, bool):
-            return DocBoolean(value, doc_root, line)
         elif value is None:
             return None
         return DocValue(value, doc_root, line)
@@ -201,17 +201,15 @@ class DocString(DocValue, str):
     def __init__(self, value: str, doc_root, line: int):
         DocValue.__init__(self, value, doc_root, line)
 
-
 class DocBoolean(DocValue, int):
 
     def __new__(cls, value: bool, doc_root, line: int):
-        db = bool.__new__(DocString, value)
+        db = bool.__new__(DocBoolean, value)
         db.__init__(value, doc_root, line)
         return db
 
     def __init__(self, value: bool, doc_root, line: int):
         DocValue.__init__(self, value, doc_root, line)
-
 
 def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
 
