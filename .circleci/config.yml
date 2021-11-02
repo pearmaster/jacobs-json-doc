@@ -1,8 +1,8 @@
 version: 2.1
 jobs:
-  build_test:
+  build_test_3_7:
     docker:
-      - image: circleci/python:3
+      - image: circleci/python:3.7
     steps:
       - checkout  # checkout source code to working directory
       - run:
@@ -10,7 +10,43 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.7.0-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.7.1-py3-none-any.whl
+      - run:
+          command: |  # Run test suite
+            mkdir -p /tmp/testresults
+            pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
+            pipenv run coveralls
+      - store_test_results:
+          path: /tmp/testresults
+  build_test_3_8:
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout  # checkout source code to working directory
+      - run:
+          command: |  # create whl and use pipenv to install dependencies
+            python setup.py sdist bdist_wheel
+            sudo pip install pipenv
+            pipenv install coveralls unittest-xml-reporting
+            pipenv install dist/jacobs_json_doc-0.7.1-py3-none-any.whl
+      - run:
+          command: |  # Run test suite
+            mkdir -p /tmp/testresults
+            pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
+            pipenv run coveralls
+      - store_test_results:
+          path: /tmp/testresults
+  build_test_3_9:
+    docker:
+      - image: circleci/python:3.9
+    steps:
+      - checkout  # checkout source code to working directory
+      - run:
+          command: |  # create whl and use pipenv to install dependencies
+            python setup.py sdist bdist_wheel
+            sudo pip install pipenv
+            pipenv install coveralls unittest-xml-reporting
+            pipenv install dist/jacobs_json_doc-0.7.1-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -43,17 +79,23 @@ jobs:
 workflows:
   build_test_publish:
     jobs:
-      - build_test
+      - build_test_3_7
+      - build_test_3_8
+      - build_test_3_9
       - test_pypi_publish:
           requires:
-            - build_test
+            - build_test_3_7
+            - build_test_3_8
+            - build_test_3_9
           filters:
             branches:
               only:
                 - next
       - pypi_publish:
           requires:
-            - build_test
+            - build_test_3_7
+            - build_test_3_8
+            - build_test_3_9
           filters:
             branches:
               only:

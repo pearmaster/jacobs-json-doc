@@ -1,5 +1,7 @@
 
 from enum import Enum
+import json
+
 from .loader import LoaderBaseClass
 from .parser import Parser
 from .resolver import ResolverBaseClass
@@ -194,22 +196,18 @@ class DocFloat(DocValue, float):
 class DocString(DocValue, str):
 
     def __new__(cls, value: str, doc_root, line: int):
-        ds = str.__new__(DocString, value)
-        ds.__init__(value, doc_root, line)
+        # This is stupid and needs to be fixed.
+        # It is here to correctly load a poop emoji found
+        # in the minLength.json JSON-Schema test data.
+        new_value = json.loads(json.dumps(value))
+        new_len = len(new_value)
+        ds = str.__new__(DocString, new_value)
+        ds.__init__(new_value, doc_root, line)
         return ds
 
     def __init__(self, value: str, doc_root, line: int):
         DocValue.__init__(self, value, doc_root, line)
 
-class DocBoolean(DocValue, int):
-
-    def __new__(cls, value: bool, doc_root, line: int):
-        db = bool.__new__(DocBoolean, value)
-        db.__init__(value, doc_root, line)
-        return db
-
-    def __init__(self, value: bool, doc_root, line: int):
-        DocValue.__init__(self, value, doc_root, line)
 
 def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
 

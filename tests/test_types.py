@@ -1,4 +1,5 @@
 import unittest
+import os.path
 
 import jacobsjsondoc
 
@@ -10,7 +11,8 @@ JSON_WITH_A_TAB = """
         null,
         True,
         False
-    ]
+    ],
+    "hi": "💩"
 }
 """
 
@@ -32,3 +34,22 @@ class TestParsedTypes(unittest.TestCase):
         self.assertFalse(self.doc["things"][4])
         self.assertTrue(self.doc["things"][3] is True)
         self.assertTrue(self.doc["things"][4] is False)
+
+    def test_grapheme(self):
+        self.assertIsInstance(self.doc["hi"], str)
+        self.assertEqual(self.doc["hi"], "💩")
+
+class TestMinLength(unittest.TestCase):
+
+    def setUp(self):
+        data_file = os.path.join(os.path.dirname(__file__), "minLength.json")
+        data = open(data_file, "r").read()
+        self.doc = jacobsjsondoc.parse(data)
+
+    def test_grapheme(self):
+        self.assertIsInstance("💩", str)
+        self.assertEqual(len("💩"), 1)
+        self.assertIsInstance(self.doc["data"], str)
+        self.assertIsInstance(self.doc["data"], jacobsjsondoc.document.DocString)
+        #self.assertEqual(self.doc[0]["tests"][4]["data"], "💩")
+        self.assertEqual(len(self.doc["data"]), 1)
