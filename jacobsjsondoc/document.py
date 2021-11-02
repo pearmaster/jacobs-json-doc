@@ -253,6 +253,8 @@ def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, r
                     node = node[part]
                 except KeyError:
                     raise PathReferenceResolutionError(self, path)
+                except TypeError:
+                    raise PathReferenceResolutionError(self, path)
             return node
 
         def get_doc(self, uri):

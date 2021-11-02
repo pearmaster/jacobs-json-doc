@@ -1,7 +1,7 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonReference, ReferenceDictionary
-from jacobsjsondoc.document import create_document, RefResolutionMode
+from jacobsjsondoc.document import create_document, RefResolutionMode, DocReference
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.resolver import PassThroughResolver
 import json
@@ -104,3 +104,42 @@ class TestIdTagging(unittest.TestCase):
         self.assertEquals(barprop['$id'], "#barprop")
         self.assertEquals(barprop['type'], "integer")
     
+DOUBLE_REFERENCE_DOC = """
+{
+    "definitions": {
+        "item": {
+            "type": "array",
+            "additionalItems": false,
+            "items": [
+                { "$ref": "#/definitions/sub-item" },
+                { "$ref": "#/definitions/sub-item" }
+            ]
+        },
+        "sub-item": {
+            "type": "object",
+            "required": ["foo"]
+        }
+    },
+    "type": "array",
+    "additionalItems": false,
+    "items": [
+        { "$ref": "#/definitions/item" },
+        { "$ref": "#/definitions/item" },
+        { "$ref": "#/definitions/item" }
+    ]
+}
+"""
+
+class TestDoubleRef(unittest.TestCase):
+
+    def setUp(self):
+        self.data = DOUBLE_REFERENCE_DOC
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(1, self.data)
+        self.doc = create_document(uri=1, resolver=PassThroughResolver(), loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+
+    def test_is_a_reference(self):
+        self.assertIsInstance(self.doc['items'][0], DocReference)
+        resolved = self.doc['items'][0].resolve()
+        self.assertEqual(resolved['type'], "array")
+        self.assertIsInstance(resolved['items'], list)
