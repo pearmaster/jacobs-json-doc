@@ -1,5 +1,23 @@
 version: 2.1
 jobs:
+  build_test_3_6:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - checkout  # checkout source code to working directory
+      - run:
+          command: |  # create whl and use pipenv to install dependencies
+            python setup.py sdist bdist_wheel
+            sudo pip install pipenv
+            pipenv install coveralls unittest-xml-reporting
+            pipenv install dist/jacobs_json_doc-0.7.3-py3-none-any.whl
+      - run:
+          command: |  # Run test suite
+            mkdir -p /tmp/testresults
+            pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
+            pipenv run coveralls
+      - store_test_results:
+          path: /tmp/testresults
   build_test_3_7:
     docker:
       - image: circleci/python:3.7
@@ -10,7 +28,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.7.2-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.7.3-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -28,7 +46,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.7.2-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.7.3-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -46,7 +64,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.7.2-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.7.3-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -79,11 +97,13 @@ jobs:
 workflows:
   build_test_publish:
     jobs:
+      - build_test_3_6
       - build_test_3_7
       - build_test_3_8
       - build_test_3_9
       - test_pypi_publish:
           requires:
+            - build_test_3_6
             - build_test_3_7
             - build_test_3_8
             - build_test_3_9
@@ -93,6 +113,7 @@ workflows:
                 - next
       - pypi_publish:
           requires:
+            - build_test_3_6
             - build_test_3_7
             - build_test_3_8
             - build_test_3_9

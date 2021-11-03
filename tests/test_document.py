@@ -174,5 +174,28 @@ class TestDocumentSimpleTypes(unittest.TestCase):
         self.assertIsInstance(self.doc['thevalue'], int)
         self.assertEqual(self.doc['thevalue'].line, 1)
 
+class TestDocumentReference(unittest.TestCase):
+
+    def setUp(self):
+        doc_text = """
+        {
+            "$ref": "http://example.org/schema"
+        }
+        """
+        remote = """
+        { "type": "integer" }
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("local", doc_text)
+        ppl.prepopulate("http://example.org/schema", remote)
+        self.doc = create_document(uri="local", resolver=None, loader=ppl)
+
+    def test_loaded_reference(self):
+        self.assertIsInstance(self.doc, dict)
+
+    def test_correct_remote(self):
+        self.assertTrue("type" in self.doc)
+        self.assertEqual(self.doc["type"], "integer")
+
 if __name__ == '__main__':
     unittest.main()

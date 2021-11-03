@@ -127,7 +127,12 @@ class DocReference(DocElement):
         return self._reference
 
     def resolve(self):
-        href, path = self._reference.split('#')
+        reference_parts = self._reference.split('#')
+        if len(reference_parts) == 2:
+            href, path = reference_parts
+        elif len(reference_parts) == 1:
+            href = reference_parts
+            path = ""
         doc = self.root
         if len(href) > 0:
             uri = self.root.resolve_uri(href)
@@ -216,6 +221,12 @@ def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, r
     base_class = DocObject
     if isinstance(structure, list):
         base_class = DocArray
+    elif isinstance(structure, dict) and "$ref" in structure:
+        dollar_ref = structure['$ref']
+        #doc_cache = DocumentCache(resolver, loader, ref_resolution)
+        #doc = doc_cache.get_doc(dollar_ref)
+        doc = create_document(dollar_ref, resolver, loader, ref_resolution, dollar_id_token)
+        return doc
 
     class Document(base_class):
 
