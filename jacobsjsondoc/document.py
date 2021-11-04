@@ -4,7 +4,6 @@ import json
 
 from .loader import LoaderBaseClass
 from .parser import Parser
-from .resolver import ResolverBaseClass
 from .reference import ReferenceDictionary, JsonReference
 
 class RefResolutionMode(Enum):
@@ -135,8 +134,7 @@ class DocReference(DocElement):
             path = ""
         doc = self.root
         if len(href) > 0:
-            uri = self.root.resolve_uri(href)
-            doc = self.root.get_doc(uri)
+            doc = self.root.get_doc(href)
         node = doc.get_node(path)
         return node
 
@@ -214,7 +212,7 @@ class DocString(DocValue, str):
         DocValue.__init__(self, value, doc_root, line)
 
 
-def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
+def create_document(uri, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
 
     parser = Parser()
     structure = parser.parse_yaml(loader.load(uri))
@@ -223,21 +221,18 @@ def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, r
         base_class = DocArray
     elif isinstance(structure, dict) and "$ref" in structure:
         dollar_ref = structure['$ref']
-        #doc_cache = DocumentCache(resolver, loader, ref_resolution)
-        #doc = doc_cache.get_doc(dollar_ref)
-        doc = create_document(dollar_ref, resolver, loader, ref_resolution, dollar_id_token)
+        doc = create_document(dollar_ref, loader, ref_resolution, dollar_id_token)
         return doc
 
     class Document(base_class):
 
-        def __init__(self, uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
+        def __init__(self, uri, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
             self._dollar_id_token = dollar_id_token
             self._ref_resolution_mode=ref_resolution
             self._uri = uri
-            self._resolver = resolver
             self._loader = loader
             self.parser = Parser()
-            self._doc_cache = DocumentCache(self._resolver, self._loader, self._ref_resolution_mode)
+            self._doc_cache = RemoteDocumentCache(self._loader, self._ref_resolution_mode)
             structure = self.parser.parse_yaml(loader.load(self._uri))
             self._ref_dictionary = ReferenceDictionary()
             new_dollar_id = JsonReference.empty()
@@ -252,9 +247,6 @@ def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, r
         @property
         def uri(self):
             return self._uri
-
-        def resolve_uri(self, href):
-            return self._resolver.resolve(self._uri, href)
 
         def get_node(self, path):
             path_parts = [ p for p in path.split('/') if len(p) > 0 ]
@@ -271,15 +263,14 @@ def create_document(uri, resolver: ResolverBaseClass, loader: LoaderBaseClass, r
         def get_doc(self, uri):
             return self._doc_cache.get_doc(uri)
 
-    return Document(uri, resolver, loader, ref_resolution, dollar_id_token)
+    return Document(uri, loader, ref_resolution, dollar_id_token)
 
 
-class DocumentCache(object):
+class RemoteDocumentCache(object):
     _cache = {}
     _loading = set()
 
-    def __init__(self, resolver, loader, ref_resolution_mode):
-        self._resolver = resolver
+    def __init__(self,  loader, ref_resolution_mode):
         self._loader = loader
         self._ref_resolution_mode = ref_resolution_mode
     
@@ -288,7 +279,7 @@ class DocumentCache(object):
             raise CircularDependencyError(uri)
         if uri not in self._cache:
             self._loading.add(uri)
-            doc = create_document(uri, self._resolver, self._loader, ref_resolution=self._ref_resolution_mode)
+            doc = create_document(uri, self._loader, ref_resolution=self._ref_resolution_mode)
             self._cache[uri] = doc
             self._loading.remove(uri)
         return self._cache[uri]

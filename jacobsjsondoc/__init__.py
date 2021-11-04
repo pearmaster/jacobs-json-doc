@@ -14,5 +14,5 @@ from .loader import PrepopulatedLoader
 def parse(text_data):
     ppl = PrepopulatedLoader()
     ppl.prepopulate(None, text_data)
-    doc = create_document(uri=None, resolver=None, loader=ppl)
+    doc = create_document(uri=None, loader=ppl)
     return doc
