@@ -83,7 +83,7 @@ class TestIdTagging(unittest.TestCase):
         self.data = SAMPLE_DOCUMENT
         ppl = PrepopulatedLoader()
         ppl.prepopulate(self.data["$id"], json.dumps(self.data))
-        self.doc = create_document(uri=self.data["$id"], loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.doc = create_document(uri=self.data["$id"], loader=ppl)
     
     def test_root_has_correct_id(self):
         self.assertEquals(self.doc._dollar_id.uri, self.data["$id"])
@@ -135,7 +135,7 @@ class TestDoubleRef(unittest.TestCase):
         self.data = DOUBLE_REFERENCE_DOC
         ppl = PrepopulatedLoader()
         ppl.prepopulate(1, self.data)
-        self.doc = create_document(uri=1, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.doc = create_document(uri=1, loader=ppl)
 
     def test_is_a_reference(self):
         self.assertIsInstance(self.doc['items'][0], DocReference)
