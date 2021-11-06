@@ -2,6 +2,7 @@ import unittest
 from collections import UserDict
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.document import create_document, RefResolutionMode, DocReference, DocValue, DocObject, CircularDependencyError
+from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 
 SIMPLE_YAML = """
 jacob:
@@ -63,7 +64,9 @@ class TestDocument(unittest.TestCase):
     def test_local_ref_use_reference_objects(self):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("yaml_with_ref", YAML_WITH_REF)
-        doc = create_document(uri="yaml_with_ref", loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
+        doc = create_document(uri="yaml_with_ref", loader=ppl, options=options)
         self.assertIsInstance(doc['house']['local'], DocReference)
         node = doc['house']['local'].resolve()
         self.assertIsInstance(node, DocValue)
@@ -73,7 +76,9 @@ class TestDocument(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
-        doc = create_document(uri="local", loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
+        doc = create_document(uri="local", loader=ppl, options=options)
         self.assertIsInstance(doc['house']['local'], DocValue)
         self.assertEqual(doc['house']['local'].value, "this is the value of the var")
 
@@ -81,7 +86,9 @@ class TestDocument(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
-        doc = create_document(uri="local", loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
+        doc = create_document(uri="local", loader=ppl, options=options)
         self.assertIsInstance(doc['house']['remote'], DocReference)
         node = doc['house']['remote'].resolve()
         self.assertIsInstance(node, DocValue)
@@ -92,7 +99,9 @@ class TestDocument(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
-        doc = create_document(uri="local", loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
+        doc = create_document(uri="local", loader=ppl, options=options)
         self.assertIsInstance(doc['house']['remote'], DocValue)
         self.assertEqual(doc['house']['remote'].value, "this is a foo string")
 
@@ -101,7 +110,9 @@ class TestDocument(unittest.TestCase):
         ppl.prepopulate("middle", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
         ppl.prepopulate("local", ANOTHER_YAML_WITH_REF)
-        doc = create_document(uri="local", loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
+        doc = create_document(uri="local", loader=ppl, options=options)
         self.assertIsInstance(doc['colorado']['springs'], DocObject)
         self.assertIsInstance(doc['colorado']['springs']['var'], DocValue)
         self.assertEqual(doc['colorado']['springs']['var'].value, "this is the value of the var")
@@ -124,8 +135,10 @@ class TestDocument(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("one", yaml1)
         ppl.prepopulate("two", yaml2)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
         with self.assertRaises(CircularDependencyError):
-            doc = create_document(uri="one", loader=ppl, ref_resolution=RefResolutionMode.RESOLVE_REFERENCES)
+            doc = create_document(uri="one", loader=ppl, options=options)
 
 
 class TestDocumentTypes(unittest.TestCase):

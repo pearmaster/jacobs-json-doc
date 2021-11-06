@@ -1,8 +1,9 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonReference, ReferenceDictionary
-from jacobsjsondoc.document import create_document, RefResolutionMode, DocReference
+from jacobsjsondoc.document import create_document, DocReference
 from jacobsjsondoc.loader import PrepopulatedLoader
+from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
 
 SAMPLE_DOCUMENT = {
@@ -83,7 +84,7 @@ class TestIdTagging(unittest.TestCase):
         self.data = SAMPLE_DOCUMENT
         ppl = PrepopulatedLoader()
         ppl.prepopulate(self.data["$id"], json.dumps(self.data))
-        self.doc = create_document(uri=self.data["$id"], loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.doc = create_document(uri=self.data["$id"], loader=ppl)
     
     def test_root_has_correct_id(self):
         self.assertEquals(self.doc._dollar_id.uri, self.data["$id"])
@@ -135,10 +136,58 @@ class TestDoubleRef(unittest.TestCase):
         self.data = DOUBLE_REFERENCE_DOC
         ppl = PrepopulatedLoader()
         ppl.prepopulate(1, self.data)
-        self.doc = create_document(uri=1, loader=ppl, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS)
+        self.doc = create_document(uri=1, loader=ppl)
 
     def test_is_a_reference(self):
         self.assertIsInstance(self.doc['items'][0], DocReference)
         resolved = self.doc['items'][0].resolve()
         self.assertEqual(resolved['type'], "array")
         self.assertIsInstance(resolved['items'], list)
+
+class TestIdTrouble(unittest.TestCase):
+
+    def setUp(self):
+        data_text = """
+        "schema": {
+            "definitions": {
+                "id_in_enum": {
+                    "enum": [
+                        {
+                          "id": "https://localhost:1234/my_identifier.json",
+                          "type": "null"
+                        }
+                    ]
+                },
+                "real_id_in_schema": {
+                    "id": "https://localhost:1234/my_identifier.json",
+                    "type": "string"
+                },
+                "zzz_id_in_const": {
+                    "const": {
+                        "id": "https://localhost:1234/my_identifier.json",
+                        "type": "null"
+                    }
+                }
+            },
+            "anyOf": [
+                { "$ref": "#/schema/definitions/id_in_enum" },
+                { "$ref": "https://localhost:1234/my_identifier.json" }
+            ]
+        }
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(1, data_text)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
+        options.dollar_id_token = "id"
+        self.doc = create_document(uri=1, loader=ppl, options=options)
+
+    def test_ref_points_to_correct_id(self):
+        first_anyof_ref = self.doc["schema"]["anyOf"][0]
+        self.assertIsInstance(first_anyof_ref, DocReference)
+        second_anyof_ref = self.doc["schema"]["anyOf"][1]
+        self.assertIsInstance(second_anyof_ref, DocReference)
+
+        first_resolved = first_anyof_ref.resolve()
+        second_resolved = second_anyof_ref.resolve()
+        

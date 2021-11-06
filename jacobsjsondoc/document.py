@@ -1,14 +1,12 @@
 
-from enum import Enum
-import json
 
-from .loader import LoaderBaseClass
+import json
+from typing import Optional
+
+from .loader import LoaderBaseClass, FilesystemLoader
 from .parser import Parser
 from .reference import ReferenceDictionary, JsonReference
-
-class RefResolutionMode(Enum):
-    USE_REFERENCES_OBJECTS = 0
-    RESOLVE_REFERENCES = 1
+from .options import ParseOptions, RefResolutionMode
 
 
 class ReferenceResolutionError(Exception):
@@ -97,7 +95,11 @@ class DocObject(DocContainer, dict):
             self._dollar_id.change_to(data[self.root._dollar_id_token])
             self.root._ref_dictionary.put(self._dollar_id, self)
         for k, v in data.items():
+            if k in self.root._parse_options.exclude_dollar_id_parse:
+                self.root.dollar_id_token = None
             self[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
+            if k in self.root._parse_options.exclude_dollar_id_parse:
+                self.root.dollar_id_token = self.root._parse_options.dollar_id_token
 
     def resolve_references(self):
         for k, v in self.items():
@@ -126,11 +128,17 @@ class DocReference(DocElement):
         return self._reference
 
     def resolve(self):
+        try:
+            jsref = JsonReference.from_string(self._reference)
+            node = self.root._ref_dictionary.get(jsref)
+            return node
+        except:
+            pass
         reference_parts = self._reference.split('#')
         if len(reference_parts) == 2:
             href, path = reference_parts
         elif len(reference_parts) == 1:
-            href = reference_parts
+            href = reference_parts[0]
             path = ""
         doc = self.root
         if len(href) > 0:
@@ -211,9 +219,14 @@ class DocString(DocValue, str):
     def __init__(self, value: str, doc_root, line: int):
         DocValue.__init__(self, value, doc_root, line)
 
+class Document:
+    pass
 
-def create_document(uri, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
-
+def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Optional[ParseOptions]=None):
+    if loader is None:
+        loader = FilesystemLoader()
+    if options is None:
+        options = ParseOptions()
     parser = Parser()
     structure = parser.parse_yaml(loader.load(uri))
     base_class = DocObject
@@ -221,18 +234,19 @@ def create_document(uri, loader: LoaderBaseClass, ref_resolution=RefResolutionMo
         base_class = DocArray
     elif isinstance(structure, dict) and "$ref" in structure:
         dollar_ref = structure['$ref']
-        doc = create_document(dollar_ref, loader, ref_resolution, dollar_id_token)
+        doc = create_document(dollar_ref, loader, options)
         return doc
 
-    class Document(base_class):
+    class DocumentRoot(base_class, Document):
 
-        def __init__(self, uri, loader: LoaderBaseClass, ref_resolution=RefResolutionMode.USE_REFERENCES_OBJECTS, dollar_id_token="$id"):
-            self._dollar_id_token = dollar_id_token
-            self._ref_resolution_mode=ref_resolution
+        def __init__(self, uri, loader: LoaderBaseClass, options: ParseOptions):
+            self._dollar_id_token = options.dollar_id_token
+            self._ref_resolution_mode = options.ref_resolution_mode
+            self._parse_options = options
             self._uri = uri
             self._loader = loader
             self.parser = Parser()
-            self._doc_cache = RemoteDocumentCache(self._loader, self._ref_resolution_mode)
+            self._doc_cache = RemoteDocumentCache(self._loader, self._parse_options)
             structure = self.parser.parse_yaml(loader.load(self._uri))
             self._ref_dictionary = ReferenceDictionary()
             new_dollar_id = JsonReference.empty()
@@ -263,23 +277,23 @@ def create_document(uri, loader: LoaderBaseClass, ref_resolution=RefResolutionMo
         def get_doc(self, uri):
             return self._doc_cache.get_doc(uri)
 
-    return Document(uri, loader, ref_resolution, dollar_id_token)
+    return DocumentRoot(uri, loader, options)
 
 
 class RemoteDocumentCache(object):
     _cache = {}
     _loading = set()
 
-    def __init__(self,  loader, ref_resolution_mode):
+    def __init__(self,  loader, options):
         self._loader = loader
-        self._ref_resolution_mode = ref_resolution_mode
-    
+        self._parse_options = options
+
     def get_doc(self, uri):
         if uri in self._loading:
             raise CircularDependencyError(uri)
         if uri not in self._cache:
             self._loading.add(uri)
-            doc = create_document(uri, self._loader, ref_resolution=self._ref_resolution_mode)
+            doc = create_document(uri, self._loader, self._parse_options)
             self._cache[uri] = doc
             self._loading.remove(uri)
         return self._cache[uri]
