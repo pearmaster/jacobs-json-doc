@@ -1,8 +1,9 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonReference, ReferenceDictionary
-from jacobsjsondoc.document import create_document, RefResolutionMode, DocReference
+from jacobsjsondoc.document import create_document, DocReference
 from jacobsjsondoc.loader import PrepopulatedLoader
+from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
 
 SAMPLE_DOCUMENT = {
@@ -142,3 +143,51 @@ class TestDoubleRef(unittest.TestCase):
         resolved = self.doc['items'][0].resolve()
         self.assertEqual(resolved['type'], "array")
         self.assertIsInstance(resolved['items'], list)
+
+class TestIdTrouble(unittest.TestCase):
+
+    def setUp(self):
+        data_text = """
+        "schema": {
+            "definitions": {
+                "id_in_enum": {
+                    "enum": [
+                        {
+                          "id": "https://localhost:1234/my_identifier.json",
+                          "type": "null"
+                        }
+                    ]
+                },
+                "real_id_in_schema": {
+                    "id": "https://localhost:1234/my_identifier.json",
+                    "type": "string"
+                },
+                "zzz_id_in_const": {
+                    "const": {
+                        "id": "https://localhost:1234/my_identifier.json",
+                        "type": "null"
+                    }
+                }
+            },
+            "anyOf": [
+                { "$ref": "#/schema/definitions/id_in_enum" },
+                { "$ref": "https://localhost:1234/my_identifier.json" }
+            ]
+        }
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(1, data_text)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
+        options.dollar_id_token = "id"
+        self.doc = create_document(uri=1, loader=ppl, options=options)
+
+    def test_ref_points_to_correct_id(self):
+        first_anyof_ref = self.doc["schema"]["anyOf"][0]
+        self.assertIsInstance(first_anyof_ref, DocReference)
+        second_anyof_ref = self.doc["schema"]["anyOf"][1]
+        self.assertIsInstance(second_anyof_ref, DocReference)
+
+        first_resolved = first_anyof_ref.resolve()
+        second_resolved = second_anyof_ref.resolve()
+        

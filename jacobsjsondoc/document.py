@@ -128,11 +128,17 @@ class DocReference(DocElement):
         return self._reference
 
     def resolve(self):
+        try:
+            jsref = JsonReference.from_string(self._reference)
+            node = self.root._ref_dictionary.get(jsref)
+            return node
+        except:
+            pass
         reference_parts = self._reference.split('#')
         if len(reference_parts) == 2:
             href, path = reference_parts
         elif len(reference_parts) == 1:
-            href = reference_parts
+            href = reference_parts[0]
             path = ""
         doc = self.root
         if len(href) > 0:
@@ -281,7 +287,7 @@ class RemoteDocumentCache(object):
     def __init__(self,  loader, options):
         self._loader = loader
         self._parse_options = options
-    
+
     def get_doc(self, uri):
         if uri in self._loading:
             raise CircularDependencyError(uri)
