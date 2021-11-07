@@ -121,7 +121,7 @@ class DocReference(DocElement):
 
     def __init__(self, reference:str, dollar_id:Optional[JsonAnchor], doc_root, line:int):
         super().__init__(doc_root, line)
-        self._reference = reference.replace("~0", "~").replace("~1", "/").replace("%25, %")
+        self._reference = reference.replace("~0", "~").replace("~1", "/").replace("%25", "%")
         self._dollar_id = dollar_id.copy()
         if self._dollar_id is None:
             self._dollar_id = JsonAnchor.empty()
