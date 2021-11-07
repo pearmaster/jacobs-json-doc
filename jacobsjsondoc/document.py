@@ -5,7 +5,7 @@ from typing import Optional
 
 from .loader import LoaderBaseClass, FilesystemLoader
 from .parser import Parser
-from .reference import ReferenceDictionary, JsonReference
+from .reference import ReferenceDictionary, JsonAnchor
 from .options import ParseOptions, RefResolutionMode
 
 
@@ -47,11 +47,11 @@ class DocElement:
 
     def construct(self, data, parent, idx=None, dollar_id=None):
         if dollar_id is None:
-            dollar_id = JsonReference.empty()
+            dollar_id = JsonAnchor.empty()
 
         if isinstance(data, dict):
             if '$ref' in data:
-                dref = DocReference(data['$ref'], self.root, data.lc.line)
+                dref = DocReference(data['$ref'], dollar_id, self.root, data.lc.line)
                 return dref
             dobj = DocObject(data, self.root, data.lc.line, dollar_id=dollar_id)
             #for k, v in data.items():
@@ -82,7 +82,7 @@ class DocContainer(DocElement):
 
     def __init__(self, doc_root, line: int, dollar_id=None):
         if dollar_id is None:
-            dollar_id = JsonReference.empty()
+            dollar_id = JsonAnchor.empty()
         self._dollar_id = dollar_id
         super().__init__(doc_root, line)
 
@@ -96,10 +96,10 @@ class DocObject(DocContainer, dict):
             self.root._ref_dictionary.put(self._dollar_id, self)
         for k, v in data.items():
             if k in self.root._parse_options.exclude_dollar_id_parse:
-                self.root.dollar_id_token = None
+                self.root._dollar_id_token = None
             self[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
             if k in self.root._parse_options.exclude_dollar_id_parse:
-                self.root.dollar_id_token = self.root._parse_options.dollar_id_token
+                self.root._dollar_id_token = self.root._parse_options.dollar_id_token
 
     def resolve_references(self):
         for k, v in self.items():
@@ -119,9 +119,12 @@ class DocArray(DocContainer, list):
 
 class DocReference(DocElement):
 
-    def __init__(self, reference, doc_root, line):
+    def __init__(self, reference:str, dollar_id:Optional[JsonAnchor], doc_root, line:int):
         super().__init__(doc_root, line)
-        self._reference = reference
+        self._reference = reference.replace("~0", "~").replace("~1", "/").replace("%25", "%")
+        self._dollar_id = dollar_id.copy()
+        if self._dollar_id is None:
+            self._dollar_id = JsonAnchor.empty()
 
     @property
     def reference(self):
@@ -129,8 +132,8 @@ class DocReference(DocElement):
 
     def resolve(self):
         try:
-            jsref = JsonReference.from_string(self._reference)
-            node = self.root._ref_dictionary.get(jsref)
+            js_anchor = self._dollar_id.copy().change_to(self._reference)
+            node = self.root._ref_dictionary.get(js_anchor)
             return node
         except:
             pass
@@ -249,10 +252,10 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
             self._doc_cache = RemoteDocumentCache(self._loader, self._parse_options)
             structure = self.parser.parse_yaml(loader.load(self._uri))
             self._ref_dictionary = ReferenceDictionary()
-            new_dollar_id = JsonReference.empty()
+            new_dollar_id = JsonAnchor.empty()
             if self._dollar_id_token in structure:
                 uri = structure[self._dollar_id_token]
-                new_dollar_id = JsonReference.from_string(uri)
+                new_dollar_id = JsonAnchor.from_string(uri)
                 self._ref_dictionary.put(new_dollar_id, self)
             super().__init__(structure, self, 0, dollar_id=new_dollar_id)
             if self._ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
