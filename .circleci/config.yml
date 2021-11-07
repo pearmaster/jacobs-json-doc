@@ -10,7 +10,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.9.2-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.9.3-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -28,7 +28,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.9.2-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.9.3-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -46,7 +46,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.9.2-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.9.3-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -64,7 +64,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.9.2-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.9.3-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
