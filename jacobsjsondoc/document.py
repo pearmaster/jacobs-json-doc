@@ -274,12 +274,28 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
         def uri(self):
             return self._uri
 
+        @staticmethod
+        def _replace_ref_escapes(ref_part:str) -> str:
+            replacements = [
+                ("~0", "~"),
+                ("~1", "/"),
+                ("%25", "%"),
+                ("%22", '"'),
+            ]
+            ret = ref_part
+            for rep in replacements:
+                ret = ret.replace(*rep)
+            return ret
+
         def get_node(self, fragment):
             fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
             node = self
             for part in fragment_parts:
+                if part.isnumeric() and isinstance(node, list):
+                    node = node[int(part)]
+                    continue
                 try:
-                    node = node[part.replace("~0", "~").replace("~1", "/").replace("%25", "%")]
+                    node = node[self._replace_ref_escapes(part)]
                 except KeyError:
                     raise PathReferenceResolutionError(self, fragment)
                 except TypeError:
