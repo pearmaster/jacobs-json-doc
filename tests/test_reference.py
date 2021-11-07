@@ -1,6 +1,6 @@
 import unittest
 from .context import jacobsjsondoc
-from jacobsjsondoc.reference import JsonReference, ReferenceDictionary
+from jacobsjsondoc.reference import JsonAnchor, ReferenceDictionary
 from jacobsjsondoc.document import create_document, DocReference
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
@@ -30,28 +30,28 @@ class TestJsonReferenceObject(unittest.TestCase):
 
     def test_reference_from_uri(self):
         uri = "http://example.com/schema.json#/definition/food"
-        ref = JsonReference.from_string(uri)
+        ref = JsonAnchor.from_string(uri)
         self.assertEquals(ref.uri, "http://example.com/schema.json")
 
     def test_references_equal(self):
         uri = "http://example.com/schema.json#/definition/food"
-        ref1 = JsonReference.from_string(uri)
-        ref2 = JsonReference.from_string(uri)
+        ref1 = JsonAnchor.from_string(uri)
+        ref2 = JsonAnchor.from_string(uri)
         self.assertEquals(ref1, ref2)
         ref3 = ref1.copy()
         self.assertEquals(ref2, ref3)
 
     def test_reference_buildup(self):
         base_uri = "http://example.com/myschema.json"
-        ref = JsonReference.from_string(base_uri)
+        ref = JsonAnchor.from_string(base_uri)
         change_path_id = "/other/schema.json"
-        ref.change_to(JsonReference.from_string(change_path_id))
+        ref.change_to(JsonAnchor.from_string(change_path_id))
         self.assertEquals(ref.uri, "http://example.com/other/schema.json")
         add_fragment_id = "#func"
-        ref.change_to(JsonReference.from_string(add_fragment_id))
+        ref.change_to(JsonAnchor.from_string(add_fragment_id))
         ref_repr = repr(ref)
         self.assertEquals(ref_repr, "http://example.com/other/schema.json#func")
-        ref2 = JsonReference.from_string(ref_repr)
+        ref2 = JsonAnchor.from_string(ref_repr)
         self.assertEquals(ref, ref2)
 
 class TestReferenceDictionary(unittest.TestCase):
@@ -69,10 +69,10 @@ class TestReferenceDictionary(unittest.TestCase):
         source_uri = "example"
         rd = ReferenceDictionary()
         rd.put(source_uri, self.data1)
-        ref = JsonReference.from_string(source_uri)
+        ref = JsonAnchor.from_string(source_uri)
         node_out = rd[ref]
         self.assertEqual(self.data1, node_out)
-        ref.change_to(JsonReference.from_string("#A/B"))
+        ref.change_to(JsonAnchor.from_string("#A/B"))
         rd[ref] = self.data1['A']['B']
         fragment_uri = "example#A/B"
         self.assertEqual(rd.get(fragment_uri), 1)

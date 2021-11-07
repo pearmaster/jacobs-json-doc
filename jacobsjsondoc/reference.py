@@ -1,8 +1,9 @@
 
 from urllib.parse import urlparse, ParseResult as UrlParseResult
 from collections import UserDict
+from typing import Union
 
-class JsonReference:
+class JsonAnchor:
 
     def __init__(self, scheme, netloc, path, fragment):
         self.scheme = scheme
@@ -42,7 +43,7 @@ class JsonReference:
         self.fragment = f"{self.fragment}/{part}"
         return self
 
-    def change_to(self, result:UrlParseResult):
+    def change_to(self, result:Union[UrlParseResult,str]):
         new_ref = result
         if isinstance(result, str):
             new_ref = self.from_string(result)
@@ -67,9 +68,9 @@ class JsonReference:
 
 class ReferenceDictionary(UserDict):
     
-    def get(self, dollar_id:JsonReference):
+    def get(self, dollar_id:JsonAnchor):
         return self[dollar_id]
 
-    def put(self, dollar_id:JsonReference, node):
+    def put(self, dollar_id:JsonAnchor, node):
         self[dollar_id] = node
         return self
