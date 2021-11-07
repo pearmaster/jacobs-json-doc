@@ -51,7 +51,7 @@ class DocElement:
 
         if isinstance(data, dict):
             if '$ref' in data:
-                dref = DocReference(data['$ref'], self.root, data.lc.line)
+                dref = DocReference(data['$ref'], dollar_id, self.root, data.lc.line)
                 return dref
             dobj = DocObject(data, self.root, data.lc.line, dollar_id=dollar_id)
             #for k, v in data.items():
@@ -119,9 +119,12 @@ class DocArray(DocContainer, list):
 
 class DocReference(DocElement):
 
-    def __init__(self, reference, doc_root, line):
+    def __init__(self, reference:str, dollar_id:Optional[JsonAnchor], doc_root, line:int):
         super().__init__(doc_root, line)
         self._reference = reference.replace("~0", "~").replace("~1", "/").replace("%25, %")
+        self._dollar_id = dollar_id.copy()
+        if self._dollar_id is None:
+            self._dollar_id = JsonAnchor.empty()
 
     @property
     def reference(self):
@@ -129,7 +132,7 @@ class DocReference(DocElement):
 
     def resolve(self):
         try:
-            js_anchor = JsonAnchor.from_string(self._reference)
+            js_anchor = self._dollar_id.copy().change_to(self._reference)
             node = self.root._ref_dictionary.get(js_anchor)
             return node
         except:
