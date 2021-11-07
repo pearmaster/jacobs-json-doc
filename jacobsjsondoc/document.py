@@ -50,17 +50,13 @@ class DocElement:
             dollar_id = JsonAnchor.empty()
 
         if isinstance(data, dict):
-            if '$ref' in data:
+            if '$ref' in data and isinstance(data["$ref"], str):
                 dref = DocReference(data['$ref'], dollar_id, self.root, data.lc.line)
                 return dref
             dobj = DocObject(data, self.root, data.lc.line, dollar_id=dollar_id)
-            #for k, v in data.items():
-            #    dobj[k] = self.construct(data=v, parent=data, idx=k, dollar_id=dollar_id)
             return dobj
         elif isinstance(data, list):
             da = DocArray(data, self.root, data.lc.line, dollar_id=dollar_id)
-            #for i, v in enumerate(data):
-            #    da.append(self.construct(data=v, parent=data, idx=i, dollar_id=dollar_id))
             return da
         else:
             if idx is not None:
@@ -235,7 +231,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
     base_class = DocObject
     if isinstance(structure, list):
         base_class = DocArray
-    elif isinstance(structure, dict) and "$ref" in structure:
+    elif isinstance(structure, dict) and "$ref" in structure and isinstance(structure["$ref"], str):
         dollar_ref = structure['$ref']
         doc = create_document(dollar_ref, loader, options)
         return doc

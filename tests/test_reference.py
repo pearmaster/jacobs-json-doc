@@ -1,7 +1,7 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonAnchor, ReferenceDictionary
-from jacobsjsondoc.document import create_document, DocReference
+from jacobsjsondoc.document import create_document, DocReference, DocObject
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
@@ -77,6 +77,33 @@ class TestReferenceDictionary(unittest.TestCase):
         fragment_uri = "example#A/B"
         self.assertEqual(rd.get(fragment_uri), 1)
 
+class TestNotAReference(unittest.TestCase):
+
+    def setUp(self):
+        data = """{
+            "A": {
+                "B": 1,
+                "$ref": {"C":true}
+            },
+            "D": false,
+            "E": {
+                "$ref": "#/A"
+            }
+        }"""
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("data", data)
+        self.doc = create_document(uri="data", loader=ppl)
+
+    def test_dollar_ref_is_a_reference(self):
+        self.assertIsInstance(self.doc["E"], DocReference)
+
+    def test_object_with_property_that_isnt_a_reference(self):
+        self.assertNotIsInstance(self.doc["A"], DocReference)
+        self.assertIsInstance(self.doc["A"], DocObject)
+
+    def test_not_a_reference(self):
+        self.assertNotIsInstance(self.doc["A"]["$ref"], DocReference)
+        self.assertIsInstance(self.doc["A"]["$ref"], DocObject)
 
 class TestIdTagging(unittest.TestCase):
 
