@@ -2,6 +2,7 @@
 from urllib.parse import urlparse, ParseResult as UrlParseResult
 from collections import UserDict
 from typing import Union
+from pathlib import PurePosixPath
 
 class JsonAnchor:
 
@@ -51,7 +52,15 @@ class JsonAnchor:
             self.scheme = new_ref.scheme
             self.netloc = new_ref.netloc
         if new_ref.path:
-            self.path = new_ref.path
+            new_path = PurePosixPath(new_ref.path)
+            old_path = PurePosixPath(self.path)
+            if new_path.is_absolute():
+                self.path = new_ref.path
+            else:
+                try:
+                    self.path = str(old_path.with_name(new_path))
+                except ValueError:
+                    self.path = str(old_path.joinpath(new_path))
         if new_ref.fragment:
             self.fragment = new_ref.fragment
         return self
