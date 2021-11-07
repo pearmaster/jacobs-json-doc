@@ -50,8 +50,8 @@ class DocElement:
             dollar_id = JsonAnchor.empty()
 
         if isinstance(data, dict):
-            if '$ref' in data and isinstance(data["$ref"], str):
-                dref = DocReference(data['$ref'], dollar_id, self.root, data.lc.line)
+            if self.root._dollar_ref_token in data and isinstance(data[self.root._dollar_ref_token], str):
+                dref = DocReference(data[self.root._dollar_ref_token], dollar_id, self.root, data.lc.line)
                 return dref
             dobj = DocObject(data, self.root, data.lc.line, dollar_id=dollar_id)
             return dobj
@@ -84,18 +84,30 @@ class DocContainer(DocElement):
 
 
 class DocObject(DocContainer, dict):
-    
+
     def __init__(self, data: dict, doc_root, line: int, dollar_id=None):
         super().__init__(doc_root, line, dollar_id)
         if self.root._dollar_id_token in data:
             self._dollar_id.change_to(data[self.root._dollar_id_token])
             self.root._ref_dictionary.put(self._dollar_id, self)
         for k, v in data.items():
+
+            # There may be certain structures were we don't want to parse $id or $ref.
+            # In JSON-Schema, these include elements under `enum` and `const`
+            # Here we detect those cases and set the tokens to None so we don't
+            # detect them.
             if k in self.root._parse_options.exclude_dollar_id_parse:
                 self.root._dollar_id_token = None
+            if k in self.root._parse_options.exclude_dollar_ref_parse:
+                self.root._dollar_ref_token = None
+
             self[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
+
+            # Now, restore the $id and $ref parsing tokens
             if k in self.root._parse_options.exclude_dollar_id_parse:
                 self.root._dollar_id_token = self.root._parse_options.dollar_id_token
+            if k in self.root._parse_options.exclude_dollar_ref_parse:
+                self.root._dollar_ref_token = self.root._parse_options.dollar_ref_token
 
     def resolve_references(self):
         for k, v in self.items():
@@ -117,7 +129,7 @@ class DocReference(DocElement):
 
     def __init__(self, reference:str, dollar_id:Optional[JsonAnchor], doc_root, line:int):
         super().__init__(doc_root, line)
-        self._reference = reference.replace("~0", "~").replace("~1", "/").replace("%25", "%")
+        self._reference = reference
         self._dollar_id = dollar_id.copy()
         if self._dollar_id is None:
             self._dollar_id = JsonAnchor.empty()
@@ -231,8 +243,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
     base_class = DocObject
     if isinstance(structure, list):
         base_class = DocArray
-    elif isinstance(structure, dict) and "$ref" in structure and isinstance(structure["$ref"], str):
-        dollar_ref = structure['$ref']
+    elif isinstance(structure, dict) and options.dollar_ref_token in structure and isinstance(structure[options.dollar_ref_token], str):
+        dollar_ref = structure[options.dollar_ref_token]
         doc = create_document(dollar_ref, loader, options)
         return doc
 
@@ -240,6 +252,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
 
         def __init__(self, uri, loader: LoaderBaseClass, options: ParseOptions):
             self._dollar_id_token = options.dollar_id_token
+            self._dollar_ref_token = options.dollar_ref_token
             self._ref_resolution_mode = options.ref_resolution_mode
             self._parse_options = options
             self._uri = uri
@@ -261,16 +274,16 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
         def uri(self):
             return self._uri
 
-        def get_node(self, path):
-            path_parts = [ p for p in path.split('/') if len(p) > 0 ]
+        def get_node(self, fragment):
+            fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
             node = self
-            for part in path_parts:
+            for part in fragment_parts:
                 try:
-                    node = node[part]
+                    node = node[part.replace("~0", "~").replace("~1", "/").replace("%25", "%")]
                 except KeyError:
-                    raise PathReferenceResolutionError(self, path)
+                    raise PathReferenceResolutionError(self, fragment)
                 except TypeError:
-                    raise PathReferenceResolutionError(self, path)
+                    raise PathReferenceResolutionError(self, fragment)
             return node
 
         def get_doc(self, uri):
