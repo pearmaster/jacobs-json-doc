@@ -88,7 +88,12 @@ class TestNotAReference(unittest.TestCase):
             "D": false,
             "E": {
                 "$ref": "#/A"
-            }
+            },
+            "F": [
+                "G",
+                "H"
+            ],
+            "J" : { "$ref": "#/F/1" }
         }"""
         ppl = PrepopulatedLoader()
         ppl.prepopulate("data", data)
@@ -105,6 +110,9 @@ class TestNotAReference(unittest.TestCase):
         self.assertNotIsInstance(self.doc["A"]["$ref"], DocReference)
         self.assertIsInstance(self.doc["A"]["$ref"], DocObject)
 
+    def test_array_index_reference(self):
+        self.assertIsInstance(self.doc["J"], DocReference)
+        self.assertEqual(self.doc["J"].resolve(), "H")
 class TestIdTagging(unittest.TestCase):
 
     def setUp(self):
