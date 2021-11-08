@@ -244,10 +244,14 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
     if isinstance(structure, list):
         base_class = DocArray
     elif isinstance(structure, dict) and options.dollar_ref_token in structure and isinstance(structure[options.dollar_ref_token], str):
-        dollar_ref = structure[options.dollar_ref_token]
-        doc = create_document(dollar_ref, loader, options)
+        uri = structure[options.dollar_ref_token]
+        fragment = None
+        if '#' in uri:
+            uri, fragment = uri.split('#')
+        doc = create_document(uri, loader, options)
+        if fragment is not None:
+            doc = doc.get_node(fragment)
         return doc
-
     class DocumentRoot(base_class, Document):
 
         def __init__(self, uri, loader: LoaderBaseClass, options: ParseOptions):
