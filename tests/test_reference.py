@@ -1,7 +1,7 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonAnchor, ReferenceDictionary
-from jacobsjsondoc.document import create_document, DocReference, DocObject
+from jacobsjsondoc.document import create_document, DocReference, DocObject, Document
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
@@ -178,6 +178,31 @@ class TestDoubleRef(unittest.TestCase):
         resolved = self.doc['items'][0].resolve()
         self.assertEqual(resolved['type'], "array")
         self.assertIsInstance(resolved['items'], list)
+
+
+ROOT_POINTER_REF = """
+{
+    "schema": {
+        "properties": {
+            "foo": {"$ref": "#"}
+        },
+        "additionalProperties": false
+    }
+}
+"""
+
+class TestRootPointerRef(unittest.TestCase):
+
+    def setUp(self):
+        self.data = ROOT_POINTER_REF
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(1, self.data)
+        self.doc = create_document(uri=1, loader=ppl)
+
+    def test_parses_root_pointer_ref(self):
+        self.assertIsInstance(self.doc, Document)
+        self.assertIn("schema", self.doc)
+        self.assertIsInstance(self.doc["schema"]["properties"]["foo"], DocReference)
 
 class TestIdTrouble(unittest.TestCase):
 

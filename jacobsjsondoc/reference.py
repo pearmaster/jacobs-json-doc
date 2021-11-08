@@ -58,7 +58,7 @@ class JsonAnchor:
                 self.path = new_ref.path
             else:
                 try:
-                    self.path = str(old_path.with_name(new_path))
+                    self.path = str(old_path.with_name(new_ref.path))
                 except (ValueError, TypeError):
                     self.path = str(old_path.joinpath(new_path))
         if new_ref.fragment:
