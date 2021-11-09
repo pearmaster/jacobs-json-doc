@@ -51,7 +51,23 @@ class JsonAnchor:
             self.scheme = new_ref.scheme
             self.netloc = new_ref.netloc
         if new_ref.path:
-            self.path = new_ref.path
+            new_path = PurePosixPath(new_ref.path)
+            old_path = PurePosixPath(self.path)
+            if new_path.is_absolute() or len(self.path) == 0:
+                self.path = new_ref.path
+            else:
+                if self.path.endswith("/"):
+                    self.path = str(old_path.joinpath(new_ref.path))
+                    if new_ref.path.endswith("/") and not self.path.endswith("/"):
+                        self.path += "/"
+                else:
+                    try:
+                        if new_ref.path.endswith("/"):
+                            self.path = str(old_path.with_name(new_ref.path[:-1]))+"/"
+                        else:
+                            self.path = str(old_path.with_name(new_ref.path))
+                    except (ValueError, TypeError):
+                        self.path = str(old_path.joinpath(new_ref.path))
         if new_ref.fragment:
             self.fragment = new_ref.fragment
         return self

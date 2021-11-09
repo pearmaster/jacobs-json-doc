@@ -217,4 +217,76 @@ class TestIdTrouble(unittest.TestCase):
 
         first_resolved = first_anyof_ref.resolve()
         second_resolved = second_anyof_ref.resolve()
-        
+
+
+class TestBaseUriChange(unittest.TestCase):
+
+    def setUp(self):
+        data_text = """
+        {
+            "id": "http://localhost:1234/scope_change_defs2.json",
+            "type" : "object",
+            "properties": {
+                "list": {"$ref": "#/definitions/baz/definitions/bar"}
+            },
+            "definitions": {
+                "baz": {
+                    "id": "baseUriChangeFolderInSubschema/",
+                    "definitions": {
+                        "bar": {
+                            "type": "array",
+                            "items": {"$ref": "folderInteger.json"}
+                        }
+                    }
+                }
+            }
+        }
+        """
+        data_text_2 = """
+        {
+            "id": "http://localhost:1234/",
+            "items": {
+                "id": "baseUriChange/",
+                "items": {"$ref": "folderInteger.json"}
+            }
+        }"""
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("1", data_text)
+        ppl.prepopulate("2", data_text_2)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
+        options.dollar_id_token = "id"
+        self.doc = create_document(uri="1", loader=ppl, options=options)
+        self.doc2 = create_document(uri="2", loader=ppl, options=options)
+
+    def test_types(self):
+        self.assertIsInstance(self.doc["type"], str)
+        self.assertIsInstance(self.doc["properties"]["list"], DocReference)
+        self.assertIsInstance(self.doc["definitions"]["baz"]["definitions"]["bar"]["items"], DocReference)
+
+        self.assertIsInstance(self.doc2["items"]["items"], DocReference)
+
+    def test_dollar_ids(self):
+        self.assertEqual(self.doc._dollar_id, "http://localhost:1234/scope_change_defs2.json")
+        self.assertEqual(self.doc["definitions"]["baz"]["definitions"]._dollar_id, "http://localhost:1234/baseUriChangeFolderInSubschema/")
+
+        self.assertEqual(self.doc2._dollar_id, "http://localhost:1234/")
+        self.assertEqual(self.doc2["items"]["items"]._dollar_id, "http://localhost:1234/baseUriChange/")
+
+    def test_list_reference_resolution(self):
+        dereffed = self.doc["properties"]["list"].resolve()
+        self.assertIsInstance(dereffed, DocObject)
+
+    def test_items_reference_resolution(self):
+        with self.assertRaises(KeyError) as context:
+            # We don't really want to have to load the remote reference, so we'll just check that the
+            # exception shows the correct URI to the remote.
+            dereffed = self.doc["definitions"]["baz"]["definitions"]["bar"]["items"].resolve()
+            self.assertIn("http://localhost:1234/baseUriChangeFolderInSubschema/folderInteger.json", str(context.exception))
+
+    def test_doc2_items_resolution(self):
+        with self.assertRaises(KeyError) as context:
+            # We don't really want to have to load the remote reference, so we'll just check that the
+            # exception shows the correct URI to the remote.
+            dereffed = self.doc2["items"]["items"].resolve()
+            self.assertIn("http://localhost:1234/baseUriChange/folderInteger.json", str(context.exception))
