@@ -57,10 +57,16 @@ class JsonAnchor:
             if new_path.is_absolute():
                 self.path = new_ref.path
             else:
-                try:
-                    self.path = str(old_path.with_name(new_ref.path))
-                except (ValueError, TypeError):
+                if self.path.endswith("/"):
                     self.path = str(old_path.joinpath(new_path))
+                else:
+                    try:
+                        if new_ref.path.endswith("/"):
+                            self.path = str(old_path.with_name(new_ref.path[:-1]))+"/"
+                        else:
+                            self.path = str(old_path.with_name(new_ref.path))
+                    except (ValueError, TypeError):
+                        self.path = str(old_path.joinpath(new_path))
         if new_ref.fragment:
             self.fragment = new_ref.fragment
         return self

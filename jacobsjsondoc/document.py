@@ -139,18 +139,14 @@ class DocReference(DocElement):
         return self._reference
 
     def resolve(self):
+        js_anchor = self._dollar_id.copy().change_to(self._reference)
         try:
-            js_anchor = self._dollar_id.copy().change_to(self._reference)
             node = self.root._ref_dictionary.get(js_anchor)
             return node
         except:
             pass
-        reference_parts = self._reference.split('#')
-        if len(reference_parts) == 2:
-            href, path = reference_parts
-        elif len(reference_parts) == 1:
-            href = reference_parts[0]
-            path = ""
+        href = js_anchor.uri
+        path = js_anchor.fragment
         doc = self.root
         if len(href) > 0:
             doc = self.root.get_doc(href)
@@ -270,6 +266,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
                 uri = structure[self._dollar_id_token]
                 new_dollar_id = JsonAnchor.from_string(uri)
                 self._ref_dictionary.put(new_dollar_id, self)
+                self._doc_cache._cache[new_dollar_id] = self
             super().__init__(structure, self, 0, dollar_id=new_dollar_id)
             if self._ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
                 self.resolve_references()
