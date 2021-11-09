@@ -2,6 +2,7 @@
 from urllib.parse import urlparse, ParseResult as UrlParseResult
 from collections import UserDict
 from typing import Union
+from pathlib import PurePosixPath
 
 class JsonAnchor:
 
