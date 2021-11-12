@@ -43,8 +43,8 @@ class TestMinLength(unittest.TestCase):
 
     def setUp(self):
         data_file = os.path.join(os.path.dirname(__file__), "minLength.json")
-        data = open(data_file, "r").read()
-        self.doc = jacobsjsondoc.parse(data)
+        with open(data_file, "r") as data:
+            self.doc = jacobsjsondoc.parse(data.read())
 
     def test_grapheme(self):
         self.assertIsInstance("💩", str)

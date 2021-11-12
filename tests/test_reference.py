@@ -31,28 +31,28 @@ class TestJsonReferenceObject(unittest.TestCase):
     def test_reference_from_uri(self):
         uri = "http://example.com/schema.json#/definition/food"
         ref = JsonAnchor.from_string(uri)
-        self.assertEquals(ref.uri, "http://example.com/schema.json")
+        self.assertEqual(ref.uri, "http://example.com/schema.json")
 
     def test_references_equal(self):
         uri = "http://example.com/schema.json#/definition/food"
         ref1 = JsonAnchor.from_string(uri)
         ref2 = JsonAnchor.from_string(uri)
-        self.assertEquals(ref1, ref2)
+        self.assertEqual(ref1, ref2)
         ref3 = ref1.copy()
-        self.assertEquals(ref2, ref3)
+        self.assertEqual(ref2, ref3)
 
     def test_reference_buildup(self):
         base_uri = "http://example.com/myschema.json"
         ref = JsonAnchor.from_string(base_uri)
         change_path_id = "/other/schema.json"
         ref.change_to(JsonAnchor.from_string(change_path_id))
-        self.assertEquals(ref.uri, "http://example.com/other/schema.json")
+        self.assertEqual(ref.uri, "http://example.com/other/schema.json")
         add_fragment_id = "#func"
         ref.change_to(JsonAnchor.from_string(add_fragment_id))
         ref_repr = repr(ref)
-        self.assertEquals(ref_repr, "http://example.com/other/schema.json#func")
+        self.assertEqual(ref_repr, "http://example.com/other/schema.json#func")
         ref2 = JsonAnchor.from_string(ref_repr)
-        self.assertEquals(ref, ref2)
+        self.assertEqual(ref, ref2)
 
 class TestReferenceDictionary(unittest.TestCase):
 
@@ -122,22 +122,21 @@ class TestIdTagging(unittest.TestCase):
         self.doc = create_document(uri=self.data["$id"], loader=ppl)
     
     def test_root_has_correct_id(self):
-        self.assertEquals(self.doc._dollar_id.uri, self.data["$id"])
+        self.assertEqual(self.doc._dollar_id.uri, self.data["$id"])
 
     def test_bar_has_correct_id(self):
-        self.assertEquals(self.doc['properties']['bar']._dollar_id, "http://example.com/schema.json#barprop")
+        self.assertEqual(self.doc['properties']['bar']._dollar_id, "http://example.com/schema.json#barprop")
 
     def test_fooproperty_has_correct_id(self):
-        self.assertEquals(self.doc['objects']['fooProperty']._dollar_id, "http://example.com/schema.json#fooprop")
+        self.assertEqual(self.doc['objects']['fooProperty']._dollar_id, "http://example.com/schema.json#fooprop")
 
     def test_dictionary_contents(self):
-        print(self.doc._ref_dictionary)
         self.assertEqual(len(self.doc._ref_dictionary), 3)
 
     def test_dictionary_has_barprop(self):
         barprop = self.doc._ref_dictionary.get("http://example.com/schema.json#barprop")
-        self.assertEquals(barprop['$id'], "#barprop")
-        self.assertEquals(barprop['type'], "integer")
+        self.assertEqual(barprop['$id'], "#barprop")
+        self.assertEqual(barprop['type'], "integer")
     
 DOUBLE_REFERENCE_DOC = """
 {

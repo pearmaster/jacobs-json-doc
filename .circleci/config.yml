@@ -1,21 +1,23 @@
 version: 2.1
+orbs:
+  python: circleci/python@1.4.0
 jobs:
   build_test_3_6:
-    docker:
-      - image: circleci/python:3.6
+    executor:
+      name: python/default
+      tag: "3.6"
     steps:
       - checkout  # checkout source code to working directory
+      - python/install-packages:
+          pkg-manager: pip
+      - python/install-packages:
+          args: coveralls coverage unittest-xml-reporting
+          pkg-manager: pip
       - run:
-          command: |  # create whl and use pipenv to install dependencies
-            python setup.py sdist bdist_wheel
-            sudo pip install pipenv
-            pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.10.0-py3-none-any.whl
-      - run:
-          command: |  # Run test suite
+          command: |
             mkdir -p /tmp/testresults
-            pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
-            pipenv run coveralls
+            coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
+            coveralls
       - store_test_results:
           path: /tmp/testresults
   build_test_3_7:
@@ -28,7 +30,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.10.0-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.10.1-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -46,7 +48,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.10.0-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.10.1-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
@@ -64,7 +66,7 @@ jobs:
             python setup.py sdist bdist_wheel
             sudo pip install pipenv
             pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.10.0-py3-none-any.whl
+            pipenv install dist/jacobs_json_doc-0.10.1-py3-none-any.whl
       - run:
           command: |  # Run test suite
             mkdir -p /tmp/testresults
