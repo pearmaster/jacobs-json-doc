@@ -101,7 +101,7 @@ workflows:
       - build_test_3_8
       - build_test_3_9
       - python/test:
-          tag: 3.10
+          version: 3.10
           pkg-manager: pip
       - test_pypi_publish:
           requires:
