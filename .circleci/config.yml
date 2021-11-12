@@ -11,6 +11,57 @@ jobs:
       - python/install-packages:
           pkg-manager: pip
       - python/install-packages:
+          args: unittest-xml-reporting
+          pkg-manager: pip
+      - run:
+          command: |
+            mkdir -p /tmp/testresults
+            python -m xmlrunner discover -o /tmp/testresults
+      - store_test_results:
+          path: /tmp/testresults
+  build_test_3_7:
+    executor:
+      name: python/default
+      tag: "3.7"
+    steps:
+      - checkout  # checkout source code to working directory
+      - python/install-packages:
+          pkg-manager: pip
+      - python/install-packages:
+          args: unittest-xml-reporting
+          pkg-manager: pip
+      - run:
+          command: |
+            mkdir -p /tmp/testresults
+            python -m xmlrunner discover -o /tmp/testresults
+      - store_test_results:
+          path: /tmp/testresults
+  build_test_3_8:
+    executor:
+      name: python/default
+      tag: "3.8"
+    steps:
+      - checkout  # checkout source code to working directory
+      - python/install-packages:
+          pkg-manager: pip
+      - python/install-packages:
+          args: unittest-xml-reporting
+          pkg-manager: pip
+      - run:
+          command: |
+            mkdir -p /tmp/testresults
+            python -m xmlrunner discover -o /tmp/testresults
+      - store_test_results:
+          path: /tmp/testresults
+  build_test_3_9:
+    executor:
+      name: python/default
+      tag: "3.9"
+    steps:
+      - checkout  # checkout source code to working directory
+      - python/install-packages:
+          pkg-manager: pip
+      - python/install-packages:
           args: coveralls coverage unittest-xml-reporting
           pkg-manager: pip
       - run:
@@ -18,60 +69,6 @@ jobs:
             mkdir -p /tmp/testresults
             coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
             coveralls
-      - store_test_results:
-          path: /tmp/testresults
-  build_test_3_7:
-    docker:
-      - image: circleci/python:3.7
-    steps:
-      - checkout  # checkout source code to working directory
-      - run:
-          command: |  # create whl and use pipenv to install dependencies
-            python setup.py sdist bdist_wheel
-            sudo pip install pipenv
-            pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.10.1-py3-none-any.whl
-      - run:
-          command: |  # Run test suite
-            mkdir -p /tmp/testresults
-            pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
-            pipenv run coveralls
-      - store_test_results:
-          path: /tmp/testresults
-  build_test_3_8:
-    docker:
-      - image: circleci/python:3.8
-    steps:
-      - checkout  # checkout source code to working directory
-      - run:
-          command: |  # create whl and use pipenv to install dependencies
-            python setup.py sdist bdist_wheel
-            sudo pip install pipenv
-            pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.10.1-py3-none-any.whl
-      - run:
-          command: |  # Run test suite
-            mkdir -p /tmp/testresults
-            pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
-            pipenv run coveralls
-      - store_test_results:
-          path: /tmp/testresults
-  build_test_3_9:
-    docker:
-      - image: circleci/python:3.9
-    steps:
-      - checkout  # checkout source code to working directory
-      - run:
-          command: |  # create whl and use pipenv to install dependencies
-            python setup.py sdist bdist_wheel
-            sudo pip install pipenv
-            pipenv install coveralls unittest-xml-reporting
-            pipenv install dist/jacobs_json_doc-0.10.1-py3-none-any.whl
-      - run:
-          command: |  # Run test suite
-            mkdir -p /tmp/testresults
-            pipenv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
-            pipenv run coveralls
       - store_test_results:
           path: /tmp/testresults
   test_pypi_publish:
@@ -103,6 +100,9 @@ workflows:
       - build_test_3_7
       - build_test_3_8
       - build_test_3_9
+      - python/test:
+          tag: 3.10
+          pkg-manager: pip
       - test_pypi_publish:
           requires:
             - build_test_3_6
