@@ -96,7 +96,7 @@ class DocObject(DocContainer, dict):
             # In JSON-Schema, these include elements under `enum` and `const`
             # Here we detect those cases and set the tokens to None so we don't
             # detect them.
-            if k in self.root._parse_options.exclude_dollar_id_parse:
+            if self.root._parse_options.should_stop_dollar_id_parse(self._parent, k):
                 self.root._dollar_id_token = None
             if k in self.root._parse_options.exclude_dollar_ref_parse:
                 self.root._dollar_ref_token = None
@@ -104,7 +104,7 @@ class DocObject(DocContainer, dict):
             self[k] = self.construct(data=v, parent=data, idx=k, dollar_id=self._dollar_id.copy())
 
             # Now, restore the $id and $ref parsing tokens
-            if k in self.root._parse_options.exclude_dollar_id_parse:
+            if self.root._parse_options.should_stop_dollar_id_parse(self._parent, k):
                 self.root._dollar_id_token = self.root._parse_options.dollar_id_token
             if k in self.root._parse_options.exclude_dollar_ref_parse:
                 self.root._dollar_ref_token = self.root._parse_options.dollar_ref_token
