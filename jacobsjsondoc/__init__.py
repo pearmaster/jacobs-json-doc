@@ -16,3 +16,7 @@ def parse(text_data):
     ppl.prepopulate(None, text_data)
     doc = create_document(uri=None, loader=ppl)
     return doc
+
+from .options import ParseOptions
+
+__all__ = [ParseOptions, PrepopulatedLoader]
