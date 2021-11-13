@@ -61,6 +61,15 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(doc['jacob']['brunson'][0].value, 1)
         self.assertEqual(doc['jacob']['brunson'][0].line, 3)
 
+    def test_indexes(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(None, SIMPLE_YAML)
+        doc = create_document(uri=None, loader=ppl)
+        
+        self.assertEqual(doc['jacob'].index, "jacob")
+        self.assertEqual(doc['jacob']['brunson'].index, "brunson")
+        self.assertEqual(doc['jacob']['brunson'][0].index, 0)
+
     def test_local_ref_use_reference_objects(self):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("yaml_with_ref", YAML_WITH_REF)
