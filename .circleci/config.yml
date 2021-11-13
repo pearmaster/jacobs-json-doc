@@ -104,6 +104,8 @@ workflows:
           version: "3.10"
           pkg-manager: pip
       - test_pypi_publish:
+          context:
+            - python_twine_test
           requires:
             - build_test_3_6
             - build_test_3_7
@@ -114,6 +116,8 @@ workflows:
               only:
                 - next
       - pypi_publish:
+          context:
+            - python_twine
           requires:
             - build_test_3_6
             - build_test_3_7
