@@ -209,5 +209,16 @@ class TestDocumentReference(unittest.TestCase):
         self.assertTrue("type" in self.doc)
         self.assertEqual(self.doc["type"], "integer")
 
+class TestDocumentBooleanRoot(unittest.TestCase):
+
+    def setUp(self):
+        doc_text = "true"
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("true", doc_text)
+        self.doc = create_document(uri="true", loader=ppl)
+
+    def test_loads_boolean_root(self):
+        self.assertTrue(self.doc)
+
 if __name__ == '__main__':
     unittest.main()

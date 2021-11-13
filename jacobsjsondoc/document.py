@@ -34,10 +34,6 @@ class DocElement:
     def line(self) -> int:
         return self._line
 
-    @line.setter
-    def line(self, value: int):
-        self._line = value
-
     @property
     def uri_line(self):
         return f"{self.root.uri}:{self.line}"
@@ -240,6 +236,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
     base_class = DocObject
     if isinstance(structure, list):
         base_class = DocArray
+    elif isinstance(structure, bool):
+        return structure
     elif isinstance(structure, dict) and options.dollar_ref_token in structure and isinstance(structure[options.dollar_ref_token], str):
         uri = structure[options.dollar_ref_token]
         fragment = None
@@ -249,6 +247,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
         if fragment is not None:
             doc = doc.get_node(fragment)
         return doc
+
     class DocumentRoot(base_class, Document):
 
         def __init__(self, uri, loader: LoaderBaseClass, options: ParseOptions):
