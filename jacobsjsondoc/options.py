@@ -19,6 +19,20 @@ class ParseOptions:
         self.should_stop_dollar_id_parse:Optional[Callable] = self._should_stop_dollar_id_parse
 
     def _should_stop_dollar_id_parse(self, parent, key) -> bool:
+        recognized = [
+            "properties", 
+            "allOf", 
+            "anyOf", 
+            "not", 
+            "oneOf", 
+            "items", 
+            "dependencies",
+            "if", "else", "then",
+            "additionalProperties",
+            None
+        ]
         if key in self.exclude_dollar_id_parse:
+            return True
+        if key not in recognized and hasattr(parent, "index") and parent.index not in recognized:
             return True
         return False
