@@ -58,8 +58,17 @@ class TestDocument(unittest.TestCase):
         
         self.assertEqual(doc['jacob'].line, 2)
         self.assertEqual(doc['jacob']['brunson'].line, 3)
-        self.assertEquals(doc['jacob']['brunson'][0].value, 1)
+        self.assertEqual(doc['jacob']['brunson'][0].value, 1)
         self.assertEqual(doc['jacob']['brunson'][0].line, 3)
+
+    def test_indexes(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate(None, SIMPLE_YAML)
+        doc = create_document(uri=None, loader=ppl)
+        
+        self.assertEqual(doc['jacob'].index, "jacob")
+        self.assertEqual(doc['jacob']['brunson'].index, "brunson")
+        self.assertEqual(doc['jacob']['brunson'][0].index, 0)
 
     def test_local_ref_use_reference_objects(self):
         ppl = PrepopulatedLoader()
@@ -208,6 +217,17 @@ class TestDocumentReference(unittest.TestCase):
     def test_correct_remote(self):
         self.assertTrue("type" in self.doc)
         self.assertEqual(self.doc["type"], "integer")
+
+class TestDocumentBooleanRoot(unittest.TestCase):
+
+    def setUp(self):
+        doc_text = "true"
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("true", doc_text)
+        self.doc = create_document(uri="true", loader=ppl)
+
+    def test_loads_boolean_root(self):
+        self.assertTrue(self.doc)
 
 if __name__ == '__main__':
     unittest.main()
