@@ -72,6 +72,7 @@ class ElementPointers:
 
     def update_base_uri(self, uri: str):
         self.base_uri.to(uri)
+        self.schema_root = self.me
 
     def child(self, idx, node):
         new_ptr = ElementPointers(self.retrieval_uri.copy(), node, self.controller)
@@ -100,10 +101,6 @@ class DocElement:
         if self.line is not None:
             line = f":{self.line}"
         return f"{self._pointers.retrieval_uri}{line}"
-
-    @property
-    def root(self):
-        return self._pointers.document_root
 
     @property
     def index(self):
@@ -163,6 +160,33 @@ class DocObject(DocContainer, dict):
             elif isinstance(v, DocObject):
                 v.resolve_references()
 
+    @staticmethod
+    def _replace_ref_escapes(ref_part:str) -> str:
+        replacements = [
+            ("~0", "~"),
+            ("~1", "/"),
+            ("%25", "%"),
+            ("%22", '"'),
+        ]
+        ret = ref_part
+        for rep in replacements:
+            ret = ret.replace(*rep)
+        return ret
+
+    def get_node(self, fragment):
+        fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
+        node = self
+        for part in fragment_parts:
+            if part.isnumeric() and isinstance(node, list):
+                node = node[int(part)]
+                continue
+            try:
+                node = node[self._replace_ref_escapes(part)]
+            except KeyError:
+                raise PathReferenceResolutionError(self, fragment)
+            except TypeError:
+                raise PathReferenceResolutionError(self, fragment)
+        return node
 
 class DocArray(DocContainer, list):
 
@@ -189,8 +213,8 @@ class DocReference(DocElement):
         if js_ptr.uri != self._pointers.base_uri:
             doc = self._pointers.controller.get_document(js_ptr.uri)
         else:
-            doc = self._pointers.document_root
-        node = doc._pointers.document_root.get_node(js_ptr.fragment)
+            doc = self._pointers.schema_root
+        node = doc._pointers.schema_root.get_node(js_ptr.fragment)
         return node
 
 class DocValue(DocElement):
@@ -290,7 +314,8 @@ class ParseController:
         self._loading: Set[Uri] = set()
 
     def add_document(self, uri: JsonPointer, doc: DocObject):
-        self._document_cache[uri.uri] = doc.root
+        if not isinstance(doc._pointers.schema_root, Document):
+            self._document_cache[uri.uri] = doc._pointers.schema_root
         self._document_cache[uri] = doc
 
     def get_document_structure(self, uri: Union[JsonPointer, Uri]):
@@ -312,7 +337,7 @@ class ParseController:
             return self._document_cache[uri]
         self._loading.add(uri)
         doc = create_document(uri, controller=self)
-        self._document_cache[uri] = doc
+        self.add_document(uri, doc)
         self._loading.remove(uri)
         return doc
 
@@ -353,34 +378,6 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
             super().__init__(structure, pointers)
             if self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(self, "resolve_references"):
                 self.resolve_references()
-
-        @staticmethod
-        def _replace_ref_escapes(ref_part:str) -> str:
-            replacements = [
-                ("~0", "~"),
-                ("~1", "/"),
-                ("%25", "%"),
-                ("%22", '"'),
-            ]
-            ret = ref_part
-            for rep in replacements:
-                ret = ret.replace(*rep)
-            return ret
-
-        def get_node(self, fragment):
-            fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
-            node = self
-            for part in fragment_parts:
-                if part.isnumeric() and isinstance(node, list):
-                    node = node[int(part)]
-                    continue
-                try:
-                    node = node[self._replace_ref_escapes(part)]
-                except KeyError:
-                    raise PathReferenceResolutionError(self, fragment)
-                except TypeError:
-                    raise PathReferenceResolutionError(self, fragment)
-            return node
 
     return DocumentRoot(structure, root_pointers)
 
