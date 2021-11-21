@@ -147,7 +147,7 @@ class DocObject(DocContainer, dict):
     def __init__(self, data: dict, pointers: IncompletePointers):
         super().__init__(pointers)
 
-        if self._pointers.dollar_id_token in data:
+        if self._pointers.controller.options.has_new_base_uri(data):
             self._pointers.update_base_uri(data[self._pointers.dollar_id_token])
             self._pointers.controller.add_document(self._pointers.base_uri, self)
 
@@ -343,6 +343,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
                 return doc_ref.resolve()
             else:
                 base_class = DocReference
+                structure = structure[initial_pointers.dollar_ref_token]
     else:
         raise Exception(f"Does not support structures that are a {type(structure)}")
 
