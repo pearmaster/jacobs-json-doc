@@ -91,6 +91,7 @@ workflows:
             - build_test_3_7
             - build_test_3_8
             - build_test_3_9
+            - build_test_3_10
           filters:
             branches:
               only:
@@ -100,6 +101,7 @@ workflows:
             - build_test_3_7
             - build_test_3_8
             - build_test_3_9
+            - build_test_3_10
           filters:
             branches:
               only:
