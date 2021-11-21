@@ -1,6 +1,6 @@
 import unittest
 from .context import jacobsjsondoc
-from jacobsjsondoc.reference import JsonAnchor, ReferenceDictionary
+from jacobsjsondoc.reference import JsonPointer
 from jacobsjsondoc.document import create_document, DocReference, DocObject, Document
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
@@ -30,52 +30,29 @@ class TestJsonReferenceObject(unittest.TestCase):
 
     def test_reference_from_uri(self):
         uri = "http://example.com/schema.json#/definition/food"
-        ref = JsonAnchor.from_string(uri)
+        ref = JsonPointer.from_uri_string(uri)
         self.assertEqual(ref.uri, "http://example.com/schema.json")
 
     def test_references_equal(self):
         uri = "http://example.com/schema.json#/definition/food"
-        ref1 = JsonAnchor.from_string(uri)
-        ref2 = JsonAnchor.from_string(uri)
+        ref1 = JsonPointer.from_uri_string(uri)
+        ref2 = JsonPointer.from_uri_string(uri)
         self.assertEqual(ref1, ref2)
         ref3 = ref1.copy()
         self.assertEqual(ref2, ref3)
 
     def test_reference_buildup(self):
         base_uri = "http://example.com/myschema.json"
-        ref = JsonAnchor.from_string(base_uri)
+        ref = JsonPointer.from_uri_string(base_uri)
         change_path_id = "/other/schema.json"
-        ref.change_to(JsonAnchor.from_string(change_path_id))
+        ref.to(JsonPointer.from_uri_string(change_path_id))
         self.assertEqual(ref.uri, "http://example.com/other/schema.json")
         add_fragment_id = "#func"
-        ref.change_to(JsonAnchor.from_string(add_fragment_id))
+        ref.to(JsonPointer.from_uri_string(add_fragment_id))
         ref_repr = repr(ref)
         self.assertEqual(ref_repr, "http://example.com/other/schema.json#func")
-        ref2 = JsonAnchor.from_string(ref_repr)
+        ref2 = JsonPointer.from_uri_string(ref_repr)
         self.assertEqual(ref, ref2)
-
-class TestReferenceDictionary(unittest.TestCase):
-
-    def setUp(self):
-        self.data1 = {
-            "A": {
-                "B": 1,
-                "C": [2,3,4,5]
-            },
-            "D": False
-        }
-
-    def test_reference_lookup(self):
-        source_uri = "example"
-        rd = ReferenceDictionary()
-        rd.put(source_uri, self.data1)
-        ref = JsonAnchor.from_string(source_uri)
-        node_out = rd[ref]
-        self.assertEqual(self.data1, node_out)
-        ref.change_to(JsonAnchor.from_string("#A/B"))
-        rd[ref] = self.data1['A']['B']
-        fragment_uri = "example#A/B"
-        self.assertEqual(rd.get(fragment_uri), 1)
 
 class TestNotAReference(unittest.TestCase):
 
@@ -97,6 +74,8 @@ class TestNotAReference(unittest.TestCase):
         }"""
         ppl = PrepopulatedLoader()
         ppl.prepopulate("data", data)
+        options = ParseOptions()
+        options.should_stop_dollar_id_parse = lambda: True
         self.doc = create_document(uri="data", loader=ppl)
 
     def test_dollar_ref_is_a_reference(self):
@@ -113,6 +92,7 @@ class TestNotAReference(unittest.TestCase):
     def test_array_index_reference(self):
         self.assertIsInstance(self.doc["J"], DocReference)
         self.assertEqual(self.doc["J"].resolve(), "H")
+
 class TestIdTagging(unittest.TestCase):
 
     def setUp(self):
@@ -122,19 +102,19 @@ class TestIdTagging(unittest.TestCase):
         self.doc = create_document(uri=self.data["$id"], loader=ppl)
     
     def test_root_has_correct_id(self):
-        self.assertEqual(self.doc._dollar_id.uri, self.data["$id"])
+        self.assertEqual(self.doc.base_uri.uri, self.data["$id"])
 
     def test_bar_has_correct_id(self):
-        self.assertEqual(self.doc['properties']['bar']._dollar_id, "http://example.com/schema.json#barprop")
+        self.assertEqual(self.doc['properties']['bar'].base_uri, "http://example.com/schema.json#barprop")
 
     def test_fooproperty_has_correct_id(self):
-        self.assertEqual(self.doc['objects']['fooProperty']._dollar_id, "http://example.com/schema.json#fooprop")
+        self.assertEqual(self.doc['objects']['fooProperty'].base_uri, "http://example.com/schema.json#fooprop")
 
     def test_dictionary_contents(self):
-        self.assertEqual(len(self.doc._ref_dictionary), 3)
+        self.assertEqual(len(self.doc._pointers.controller._document_cache), 3)
 
     def test_dictionary_has_barprop(self):
-        barprop = self.doc._ref_dictionary.get("http://example.com/schema.json#barprop")
+        barprop = self.doc._pointers.controller._document_cache["http://example.com/schema.json#barprop"]
         self.assertEqual(barprop['$id'], "#barprop")
         self.assertEqual(barprop['type'], "integer")
     
@@ -169,8 +149,8 @@ class TestDoubleRef(unittest.TestCase):
     def setUp(self):
         self.data = DOUBLE_REFERENCE_DOC
         ppl = PrepopulatedLoader()
-        ppl.prepopulate(1, self.data)
-        self.doc = create_document(uri=1, loader=ppl)
+        ppl.prepopulate("1", self.data)
+        self.doc = create_document(uri="1", loader=ppl)
 
     def test_is_a_reference(self):
         self.assertIsInstance(self.doc['items'][0], DocReference)
@@ -195,8 +175,8 @@ class TestRootPointerRef(unittest.TestCase):
     def setUp(self):
         self.data = ROOT_POINTER_REF
         ppl = PrepopulatedLoader()
-        ppl.prepopulate(1, self.data)
-        self.doc = create_document(uri=1, loader=ppl)
+        ppl.prepopulate("1", self.data)
+        self.doc = create_document(uri="1", loader=ppl)
 
     def test_parses_root_pointer_ref(self):
         self.assertIsInstance(self.doc, Document)
@@ -235,11 +215,11 @@ class TestIdTrouble(unittest.TestCase):
         }
         """
         ppl = PrepopulatedLoader()
-        ppl.prepopulate(1, data_text)
+        ppl.prepopulate("1", data_text)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
         options.dollar_id_token = "id"
-        self.doc = create_document(uri=1, loader=ppl, options=options)
+        self.doc = create_document(uri="1", loader=ppl, options=options)
 
     def test_ref_points_to_correct_id(self):
         first_anyof_ref = self.doc["schema"]["anyOf"][0]
@@ -282,14 +262,35 @@ class TestBaseUriChange(unittest.TestCase):
                 "items": {"$ref": "folderInteger.json"}
             }
         }"""
+        data_text_3 = """
+        {
+            "$id": "http://example.com/schema-relative-uri-defs1.json",
+            "properties": {
+                "foo": {
+                    "$id": "schema-relative-uri-defs2.json",
+                    "definitions": {
+                        "inner": {
+                            "properties": {
+                                "bar": { "type": "string" }
+                            }
+                        }
+                    },
+                    "allOf": [ { "$ref": "#/definitions/inner" } ]
+                }
+            },
+            "allOf": [ { "$ref": "schema-relative-uri-defs2.json" } ]
+        }"""
         ppl = PrepopulatedLoader()
         ppl.prepopulate("1", data_text)
         ppl.prepopulate("2", data_text_2)
+        ppl.prepopulate("3", data_text_3)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
         options.dollar_id_token = "id"
         self.doc = create_document(uri="1", loader=ppl, options=options)
         self.doc2 = create_document(uri="2", loader=ppl, options=options)
+        options.dollar_id_token = "$id"
+        self.doc3 = create_document(uri="3", loader=ppl, options=options)
 
     def test_types(self):
         self.assertIsInstance(self.doc["type"], str)
@@ -298,12 +299,19 @@ class TestBaseUriChange(unittest.TestCase):
 
         self.assertIsInstance(self.doc2["items"]["items"], DocReference)
 
-    def test_dollar_ids(self):
-        self.assertEqual(self.doc._dollar_id, "http://localhost:1234/scope_change_defs2.json")
-        self.assertEqual(self.doc["definitions"]["baz"]["definitions"]._dollar_id, "http://localhost:1234/baseUriChangeFolderInSubschema/")
+        self.assertIsInstance(self.doc3["properties"]["foo"]["allOf"][0], DocReference)
+        self.assertIsInstance(self.doc3["allOf"][0], DocReference)
 
-        self.assertEqual(self.doc2._dollar_id, "http://localhost:1234/")
-        self.assertEqual(self.doc2["items"]["items"]._dollar_id, "http://localhost:1234/baseUriChange/")
+    def test_dollar_ids1(self):
+        self.assertEqual(self.doc.base_uri, "http://localhost:1234/scope_change_defs2.json")
+        self.assertEqual(self.doc["definitions"]["baz"]["definitions"].base_uri, "http://localhost:1234/baseUriChangeFolderInSubschema/")
+
+    def test_dollar_ids2(self):
+        self.assertEqual(self.doc2.base_uri, "http://localhost:1234/")
+        self.assertEqual(self.doc2["items"]["items"].base_uri, "http://localhost:1234/baseUriChange/")
+
+    def test_dollar_ids3(self):
+        self.assertEqual(self.doc3["properties"]["foo"].base_uri, "http://example.com/schema-relative-uri-defs2.json")
 
     def test_list_reference_resolution(self):
         dereffed = self.doc["properties"]["list"].resolve()
@@ -322,3 +330,7 @@ class TestBaseUriChange(unittest.TestCase):
             # exception shows the correct URI to the remote.
             dereffed = self.doc2["items"]["items"].resolve()
             self.assertIn("http://localhost:1234/baseUriChange/folderInteger.json", str(context.exception))
+
+    def test_doc3_resolution(self):
+        self.assertIsInstance(self.doc3["properties"]["foo"]["allOf"][0], DocReference)
+        self.assertIsInstance(self.doc3["allOf"][0], DocReference)
