@@ -2,23 +2,6 @@ version: 2.1
 orbs:
   python: circleci/python@1.4.0
 jobs:
-  build_test_3_6:
-    executor:
-      name: python/default
-      tag: "3.6"
-    steps:
-      - checkout  # checkout source code to working directory
-      - python/install-packages:
-          pkg-manager: pip
-      - python/install-packages:
-          args: unittest-xml-reporting
-          pkg-manager: pip
-      - run:
-          command: |
-            mkdir -p /tmp/testresults
-            python -m xmlrunner discover -o /tmp/testresults
-      - store_test_results:
-          path: /tmp/testresults
   build_test_3_7:
     executor:
       name: python/default
@@ -96,16 +79,15 @@ jobs:
 workflows:
   build_test_publish:
     jobs:
-      - build_test_3_6
       - build_test_3_7
       - build_test_3_8
       - build_test_3_9
       - python/test:
           version: "3.10"
           pkg-manager: pip
+          name: build_test_3_10
       - test_pypi_publish:
           requires:
-            - build_test_3_6
             - build_test_3_7
             - build_test_3_8
             - build_test_3_9
@@ -115,7 +97,6 @@ workflows:
                 - next
       - pypi_publish:
           requires:
-            - build_test_3_6
             - build_test_3_7
             - build_test_3_8
             - build_test_3_9
