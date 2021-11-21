@@ -53,8 +53,8 @@ class TestDocument(unittest.TestCase):
 
     def test_lines(self):
         ppl = PrepopulatedLoader()
-        ppl.prepopulate(None, SIMPLE_YAML)
-        doc = create_document(uri=None, loader=ppl)
+        ppl.prepopulate("Simple", SIMPLE_YAML)
+        doc = create_document(uri="Simple", loader=ppl)
         
         self.assertEqual(doc['jacob'].line, 2)
         self.assertEqual(doc['jacob']['brunson'].line, 3)
@@ -63,8 +63,8 @@ class TestDocument(unittest.TestCase):
 
     def test_indexes(self):
         ppl = PrepopulatedLoader()
-        ppl.prepopulate(None, SIMPLE_YAML)
-        doc = create_document(uri=None, loader=ppl)
+        ppl.prepopulate("Simple", SIMPLE_YAML)
+        doc = create_document(uri="Simple", loader=ppl)
         
         self.assertEqual(doc['jacob'].index, "jacob")
         self.assertEqual(doc['jacob']['brunson'].index, "brunson")
@@ -209,12 +209,15 @@ class TestDocumentReference(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("local", doc_text)
         ppl.prepopulate("http://example.org/schema", remote)
-        self.doc = create_document(uri="local", loader=ppl)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
+        self.doc = create_document(uri="local", loader=ppl, options=options)
 
     def test_loaded_reference(self):
         self.assertIsInstance(self.doc, dict)
 
     def test_correct_remote(self):
+        print(self.doc)
         self.assertTrue("type" in self.doc)
         self.assertEqual(self.doc["type"], "integer")
 

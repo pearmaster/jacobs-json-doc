@@ -1,10 +1,10 @@
+from __future__ import annotations
 
-from urllib.parse import urlparse, ParseResult as UrlParseResult
+from urllib.parse import urlparse
 from collections import UserDict
 from typing import Union
-from pathlib import PurePosixPath
 
-class JsonAnchor:
+class JsonPointer:
 
     def __init__(self, scheme, netloc, path, fragment):
         self.scheme = scheme
@@ -12,82 +12,57 @@ class JsonAnchor:
         self.path = path
         self.fragment = fragment
     
-    @property
-    def uri(self):
-        if self.scheme and self.netloc:
-            return f"{self.scheme}://{self.netloc}{self.path}"
-        return self.path
-    
     @classmethod
-    def from_url_parsed_result(cls, result:UrlParseResult):
+    def from_uri_string(cls, uri_string:str) -> JsonPointer:
+        result = urlparse(uri_string)
         return cls(result.scheme, result.netloc, result.path, result.fragment)
 
     @classmethod
-    def from_string(cls, input:str):
-        result = urlparse(input)
-        return cls.from_url_parsed_result(result)
-
-    @classmethod
-    def empty(cls):
+    def empty(cls) -> JsonPointer:
         return cls('', '', '', '')
+
+    @property
+    def uri(self) -> str:
+        scheme = f"{self.scheme}://" if self.scheme else ""
+        netpath = f"{self.netloc}{self.path}"
+        return f"{scheme}{netpath}"
 
     def __repr__(self):
         fragment = f"#{self.fragment}" if self.fragment else ""
-        if self.path:
-            return f"{self.uri}{fragment}"
-        return fragment
+        return f"{self.uri}{fragment}"
 
-    def copy(self):
+    def copy(self) -> JsonPointer:
         return self.__class__(self.scheme, self.netloc, self.path, self.fragment)
 
-    def append_to_fragment(self, part):
-        self.fragment = f"{self.fragment}/{part}"
-        return self
-
-    def change_to(self, result:Union[UrlParseResult,str]):
-        new_ref = result
-        if isinstance(result, str):
-            new_ref = self.from_string(result)
-        if new_ref.scheme and new_ref.netloc:
+    def to(self, reference: Union[str, JsonPointer]):
+        new_ref = reference
+        if isinstance(reference, str):
+            new_ref = self.from_uri_string(reference)
+        if new_ref.scheme:
             self.scheme = new_ref.scheme
+        if new_ref.netloc:
             self.netloc = new_ref.netloc
+            self.path = ""
         if new_ref.path:
-            new_path = PurePosixPath(new_ref.path)
-            old_path = PurePosixPath(self.path)
-            if new_path.is_absolute() or len(self.path) == 0:
+            if new_ref.path.startswith("/"):
                 self.path = new_ref.path
             else:
                 if self.path.endswith("/"):
-                    self.path = str(old_path.joinpath(new_ref.path))
-                    if new_ref.path.endswith("/") and not self.path.endswith("/"):
-                        self.path += "/"
+                    self.path += new_ref.path
                 else:
-                    try:
-                        if new_ref.path.endswith("/"):
-                            self.path = str(old_path.with_name(new_ref.path[:-1]))+"/"
-                        else:
-                            self.path = str(old_path.with_name(new_ref.path))
-                    except (ValueError, TypeError):
-                        self.path = str(old_path.joinpath(new_ref.path))
+                    path_parts = self.path.split("/")[:-1]
+                    path_parts.extend(new_ref.path.split("/"))
+                    self.path = "/".join(path_parts)
+            self.fragment = ""
         if new_ref.fragment:
             self.fragment = new_ref.fragment
         return self
     
-    def __eq__(self, other):
+    def __eq__(self, other:Union[JsonPointer,str]):
         alt = other
         if isinstance(other, str):
-            alt = self.from_string(other)
-        return (self.uri == alt.uri) and (self.fragment == alt.fragment)
+            alt = self.from_uri_string(other)
+        return self.__repr__() == alt.__repr__()
 
     def __hash__(self):
         return self.__repr__().__hash__()
-
-
-class ReferenceDictionary(UserDict):
-    
-    def get(self, dollar_id:JsonAnchor):
-        return self[dollar_id]
-
-    def put(self, dollar_id:JsonAnchor, node):
-        self[dollar_id] = node
-        return self
