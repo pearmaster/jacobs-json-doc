@@ -19,7 +19,7 @@ class ParseOptions:
         if self.dollar_id_token in node:
             if not isinstance(node[self.dollar_id_token], str):
                 return False
-            if parent._pointers.idx in ["properties"]:
+            if parent._pointers.idx in ["properties", "enum"]:
                 return False
             return True
         return False
