@@ -23,3 +23,12 @@ class ParseOptions:
                 return False
             return True
         return False
+
+    def get_reference(self, parent, node):
+        if self.dollar_ref_token in node:
+            if not isinstance(node[self.dollar_ref_token], str):
+                return None
+            if parent._pointers.idx in ["properties", "enum"]:
+                return None
+            return node[self.dollar_ref_token]
+        return None

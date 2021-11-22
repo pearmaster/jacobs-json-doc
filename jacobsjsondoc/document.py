@@ -17,7 +17,7 @@ class ReferenceResolutionError(Exception):
 class PathReferenceResolutionError(ReferenceResolutionError):
 
     def __init__(self, doc, path):
-        super().__init__(f"Could not resolve path: '{path}' from {doc.uri}")
+        super().__init__(f"Could not resolve fragment: '{path}' from {doc}")
 
 
 class CircularDependencyError(ReferenceResolutionError):
@@ -120,6 +120,7 @@ class DocElement:
         dollar_ref_token = incomplete_pointers.dollar_ref_token
 
         if isinstance(data, dict):
+            ref = 
             if dollar_ref_token in data and isinstance(data[dollar_ref_token], str):
                 doc_ref = DocReference(data[dollar_ref_token], incomplete_pointers)
                 return doc_ref
@@ -210,11 +211,11 @@ class DocReference(DocElement):
 
     def resolve(self):
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
-        if js_ptr.uri != self._pointers.base_uri:
-            doc = self._pointers.controller.get_document(js_ptr.uri)
-        else:
+        try:
+            node = self._pointers.controller.get_document(js_ptr.__repr__())
+        except:
             doc = self._pointers.schema_root
-        node = doc._pointers.schema_root.get_node(js_ptr.fragment)
+            node = doc._pointers.schema_root.get_node(js_ptr.fragment)
         return node
 
 class DocValue(DocElement):
@@ -314,9 +315,7 @@ class ParseController:
         self._loading: Set[Uri] = set()
 
     def add_document(self, uri: JsonPointer, doc: DocObject):
-        if not isinstance(doc._pointers.schema_root, Document):
-            self._document_cache[uri.uri] = doc._pointers.schema_root
-        self._document_cache[uri] = doc
+        self._document_cache[uri.__repr__()] = doc
 
     def get_document_structure(self, uri: Union[JsonPointer, Uri]):
         if isinstance(uri, JsonPointer):
