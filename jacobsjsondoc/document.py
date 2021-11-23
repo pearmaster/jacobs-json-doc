@@ -117,12 +117,11 @@ class DocElement:
 
         @param pointers that should be assigned to the created object.
         """
-        dollar_ref_token = incomplete_pointers.dollar_ref_token
 
         if isinstance(data, dict):
-            ref = 
-            if dollar_ref_token in data and isinstance(data[dollar_ref_token], str):
-                doc_ref = DocReference(data[dollar_ref_token], incomplete_pointers)
+            ref = incomplete_pointers._parents_pointer.controller.options.get_reference(incomplete_pointers._parents_pointer.me, data)
+            if ref is not None:
+                doc_ref = DocReference(ref, incomplete_pointers)
                 return doc_ref
             doc_obj = DocObject(data, incomplete_pointers)
             return doc_obj
@@ -212,11 +211,14 @@ class DocReference(DocElement):
     def resolve(self):
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
         try:
-            node = self._pointers.controller.get_document(js_ptr.__repr__())
+            node = self._pointers.controller.get_document(js_ptr)
         except:
             doc = self._pointers.schema_root
             node = doc._pointers.schema_root.get_node(js_ptr.fragment)
         return node
+
+    def __repr__(self) -> str:
+        return f"<DocReference {self._reference}>"
 
 class DocValue(DocElement):
 
@@ -327,9 +329,11 @@ class ParseController:
         self._document_structure_cache[uri] = structure
         return structure
 
-    def get_document(self, uri: Union[JsonPointer, Uri]):
-        if isinstance(uri, JsonPointer):
-            uri = uri.uri
+    def get_document(self, doc_uri: Union[JsonPointer, Uri]):
+        ptr = doc_uri
+        if not isinstance(ptr, JsonPointer):
+            ptr = JsonPointer.from_uri_string(uri)
+        uri = ptr.uri
         if uri in self._loading:
             raise CircularDependencyError(uri)
         if uri in self._document_cache:
@@ -338,6 +342,8 @@ class ParseController:
         doc = create_document(uri, controller=self)
         self.add_document(uri, doc)
         self._loading.remove(uri)
+        if ptr.fragment:
+            doc = doc.get_node(ptr.fragment)
         return doc
 
 
@@ -375,8 +381,13 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
 
         def __init__(self, structure, pointers: IncompletePointers):
             super().__init__(structure, pointers)
-            if self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(self, "resolve_references"):
-                self.resolve_references()
+            
 
-    return DocumentRoot(structure, root_pointers)
+    doc_root = DocumentRoot(structure, root_pointers)
+    controller.add_document(uri, doc_root)
+
+    if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
+        doc_root.resolve_references()
+
+    return doc_root
 

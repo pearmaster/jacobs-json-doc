@@ -127,3 +127,14 @@ workflows:
             branches:
               only:
                 - master
+  safety_checks:
+    jobs:
+      - safety_check
+    triggers:
+      - schedule:
+          cron: "0 0 5 * *"
+          filters:
+            branches:
+              only:
+                - master
+      
