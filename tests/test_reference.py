@@ -294,6 +294,7 @@ class TestBaseUriChange(unittest.TestCase):
 
     def test_types(self):
         self.assertIsInstance(self.doc["type"], str)
+        self.assertIsInstance(self.doc["properties"], DocObject)
         self.assertIsInstance(self.doc["properties"]["list"], DocReference)
         self.assertIsInstance(self.doc["definitions"]["baz"]["definitions"]["bar"]["items"], DocReference)
 

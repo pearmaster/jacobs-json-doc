@@ -119,7 +119,7 @@ class DocElement:
         """
 
         if isinstance(data, dict):
-            ref = incomplete_pointers._parents_pointer.controller.options.get_reference(incomplete_pointers._parents_pointer.me, data)
+            ref = incomplete_pointers._parents_pointer.controller.options.get_reference(incomplete_pointers._parents_pointer.me, incomplete_pointers._idx, data)
             if ref is not None:
                 doc_ref = DocReference(ref, incomplete_pointers)
                 return doc_ref
@@ -211,6 +211,8 @@ class DocReference(DocElement):
     def resolve(self):
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
         try:
+            if js_ptr.uri == self._pointers.schema_root.base_uri:
+                raise Exception("Not an exception, just want to jump to except block")
             node = self._pointers.controller.get_document(js_ptr)
         except CircularDependencyError:
             raise
@@ -334,7 +336,7 @@ class ParseController:
     def get_document(self, doc_uri: Union[JsonPointer, Uri]):
         ptr = doc_uri
         if not isinstance(ptr, JsonPointer):
-            ptr = JsonPointer.from_uri_string(uri)
+            ptr = JsonPointer.from_uri_string(doc_uri)
         uri = ptr.uri
         if uri in self._loading:
             raise CircularDependencyError(uri)
@@ -387,10 +389,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
 
     doc_root = DocumentRoot(structure, root_pointers)
     controller.add_document(uri, doc_root)
-    controller._loading.add(uri)
     if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
-    controller._loading.remove(uri)
 
     return doc_root
 
