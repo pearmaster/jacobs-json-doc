@@ -212,6 +212,8 @@ class DocReference(DocElement):
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
         try:
             node = self._pointers.controller.get_document(js_ptr)
+        except CircularDependencyError:
+            raise
         except:
             doc = self._pointers.schema_root
             node = doc._pointers.schema_root.get_node(js_ptr.fragment)
@@ -385,9 +387,10 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
 
     doc_root = DocumentRoot(structure, root_pointers)
     controller.add_document(uri, doc_root)
-
+    controller._loading.add(uri)
     if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
+    controller._loading.remove(uri)
 
     return doc_root
 
