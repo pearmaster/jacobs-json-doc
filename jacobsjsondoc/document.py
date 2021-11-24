@@ -25,6 +25,9 @@ class CircularDependencyError(ReferenceResolutionError):
         super().__init__(f"Circular dependency detected when trying to load '{uri}' a second time")
 
 
+class UnableToLoadDocument(Exception):
+    pass
+
 class IncompletePointers:
 
     def __init__(self, parents_pointer: ElementPointers, idx, line=None):
@@ -216,6 +219,8 @@ class DocReference(DocElement):
             node = self._pointers.controller.get_document(js_ptr)
         except CircularDependencyError:
             raise
+        except UnableToLoadDocument:
+            raise
         except:
             doc = self._pointers.schema_root
             node = doc._pointers.schema_root.get_node(js_ptr.fragment)
@@ -321,14 +326,17 @@ class ParseController:
         self._loading: Set[Uri] = set()
 
     def add_document(self, uri: JsonPointer, doc: DocObject):
-        self._document_cache[uri.__repr__()] = doc
+        self._document_cache[uri.uri] = doc
 
     def get_document_structure(self, uri: Union[JsonPointer, Uri]):
         if isinstance(uri, JsonPointer):
             uri = uri.uri
         if uri in self._document_structure_cache:
             return self._document_structure_cache[uri]
-        json_text = self.loader.load(uri)
+        try:
+            json_text = self.loader.load(uri)
+        except:
+            raise UnableToLoadDocument(f"Could not load '{uri}'")
         structure = self.parser.parse_yaml(json_text)
         self._document_structure_cache[uri] = structure
         return structure
@@ -388,7 +396,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
             
 
     doc_root = DocumentRoot(structure, root_pointers)
-    controller.add_document(uri, doc_root)
+    controller.add_document(JsonPointer.from_uri_string(uri), doc_root)
     if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
 

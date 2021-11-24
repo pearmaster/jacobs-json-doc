@@ -1,7 +1,7 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonPointer
-from jacobsjsondoc.document import create_document, DocReference, DocObject, Document
+from jacobsjsondoc.document import create_document, DocReference, DocObject, Document, UnableToLoadDocument
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
@@ -109,9 +109,6 @@ class TestIdTagging(unittest.TestCase):
 
     def test_fooproperty_has_correct_id(self):
         self.assertEqual(self.doc['objects']['fooProperty'].base_uri, "http://example.com/schema.json#fooprop")
-
-    def test_dictionary_contents(self):
-        self.assertEqual(len(self.doc._pointers.controller._document_cache), 3)
 
     def test_dictionary_has_barprop(self):
         barprop = self.doc._pointers.controller._document_cache["http://example.com/schema.json#barprop"]
@@ -319,14 +316,14 @@ class TestBaseUriChange(unittest.TestCase):
         self.assertIsInstance(dereffed, DocObject)
 
     def test_items_reference_resolution(self):
-        with self.assertRaises(KeyError) as context:
+        with self.assertRaises(UnableToLoadDocument) as context:
             # We don't really want to have to load the remote reference, so we'll just check that the
             # exception shows the correct URI to the remote.
             dereffed = self.doc["definitions"]["baz"]["definitions"]["bar"]["items"].resolve()
             self.assertIn("http://localhost:1234/baseUriChangeFolderInSubschema/folderInteger.json", str(context.exception))
 
     def test_doc2_items_resolution(self):
-        with self.assertRaises(KeyError) as context:
+        with self.assertRaises(UnableToLoadDocument) as context:
             # We don't really want to have to load the remote reference, so we'll just check that the
             # exception shows the correct URI to the remote.
             dereffed = self.doc2["items"]["items"].resolve()
