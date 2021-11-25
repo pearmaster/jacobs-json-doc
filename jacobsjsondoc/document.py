@@ -159,7 +159,9 @@ class DocObject(DocContainer, dict):
     def resolve_references(self):
         for k, v in self.items():
             if isinstance(v, DocReference):
-                self[k] = v.resolve()
+                while isinstance(v, DocReference):
+                    v = v.resolve()
+                self[k] = v
             elif isinstance(v, DocObject):
                 v.resolve_references()
 
@@ -352,7 +354,10 @@ class ParseController:
         if uri in self._loading:
             raise CircularDependencyError(uri)
         if uri in self._document_cache:
-            return self._document_cache[uri]
+            doc = self._document_cache[uri]
+            if ptr.fragment:
+                doc = doc.get_node(ptr.fragment)
+            return doc
         self._loading.add(uri)
         doc = create_document(uri, controller=self)
         self.add_document(uri, doc)
@@ -396,10 +401,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
 
         def __init__(self, structure, pointers: IncompletePointers):
             super().__init__(structure, pointers)
-            
 
     doc_root = DocumentRoot(structure, root_pointers)
-    controller.add_document(uri, doc_root)
     if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
 
