@@ -147,8 +147,9 @@ class DocObject(DocContainer, dict):
     def __init__(self, data: dict, pointers: IncompletePointers):
         super().__init__(pointers)
 
-        if self._pointers.controller.options.has_new_base_uri(self, data):
-            self._pointers.update_base_uri(data[self._pointers.dollar_id_token])
+        new_base_uri = self._pointers.controller.options.get_base_uri(self, data)
+        if new_base_uri:
+            self._pointers.update_base_uri(new_base_uri)
             self._pointers.controller.add_document(self._pointers.base_uri, self)
 
         for data_key, data_value in data.items():

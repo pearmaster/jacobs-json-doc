@@ -15,20 +15,19 @@ class ParseOptions:
         self.dollar_id_token:str = "$id"
         self.dollar_ref_token:str = "$ref"
 
-    def has_new_base_uri(self, parent, node):
+    def get_base_uri(self, parent, node):
         if self.dollar_id_token in node:
             if not isinstance(node[self.dollar_id_token], str):
-                return False
-            if parent._pointers.idx in ["enum"]:
-                return False
-            return True
-        return False
+                return None
+            return node[self.dollar_id_token]
+        return None
 
     def get_reference(self, parent, idx, node):
         if self.dollar_ref_token in node:
             if not isinstance(node[self.dollar_ref_token], str):
                 return None
-            if idx in ["properties", "enum"]:
-                return None
             return node[self.dollar_ref_token]
         return None
+
+class JsonSchemaParseOptions(ParseOptions):
+    pass
