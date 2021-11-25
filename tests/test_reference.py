@@ -1,7 +1,7 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonPointer
-from jacobsjsondoc.document import create_document, DocReference, DocObject, Document, UnableToLoadDocument
+from jacobsjsondoc.document import create_document, DocReference, DocObject, Document, UnableToLoadDocument, PathReferenceResolutionError
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
@@ -332,3 +332,21 @@ class TestBaseUriChange(unittest.TestCase):
     def test_doc3_resolution(self):
         self.assertIsInstance(self.doc3["properties"]["foo"]["allOf"][0], DocReference)
         self.assertIsInstance(self.doc3["allOf"][0], DocReference)
+
+class TestInvalid(unittest.TestCase):
+
+    def setUp(self):
+        self.data = """
+        foo:
+            $ref: "#/doesnt/exist"
+        bar:
+            value: 1
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("1", self.data)
+        self.doc = create_document(uri="1", loader=ppl)
+    
+    def test_local_ref_goes_nowhere(self):
+        self.assertIsInstance(self.doc['foo'], DocReference)
+        with self.assertRaises(PathReferenceResolutionError) as context:
+            self.doc['foo'].resolve()
