@@ -17,13 +17,16 @@ class ReferenceResolutionError(Exception):
 class PathReferenceResolutionError(ReferenceResolutionError):
 
     def __init__(self, doc, path):
-        super().__init__(f"Could not resolve path: '{path}' from {doc.uri}")
+        super().__init__(f"Could not resolve fragment: '{path}' from {doc}")
 
 
 class CircularDependencyError(ReferenceResolutionError):
     def __init__(self, uri):
         super().__init__(f"Circular dependency detected when trying to load '{uri}' a second time")
 
+
+class UnableToLoadDocument(Exception):
+    pass
 
 class IncompletePointers:
 
@@ -72,6 +75,7 @@ class ElementPointers:
 
     def update_base_uri(self, uri: str):
         self.base_uri.to(uri)
+        self.schema_root = self.me
 
     def child(self, idx, node):
         new_ptr = ElementPointers(self.retrieval_uri.copy(), node, self.controller)
@@ -102,10 +106,6 @@ class DocElement:
         return f"{self._pointers.retrieval_uri}{line}"
 
     @property
-    def root(self):
-        return self._pointers.document_root
-
-    @property
     def index(self):
         return self._pointers.idx
 
@@ -120,11 +120,11 @@ class DocElement:
 
         @param pointers that should be assigned to the created object.
         """
-        dollar_ref_token = incomplete_pointers.dollar_ref_token
 
         if isinstance(data, dict):
-            if dollar_ref_token in data and isinstance(data[dollar_ref_token], str):
-                doc_ref = DocReference(data[dollar_ref_token], incomplete_pointers)
+            ref = incomplete_pointers._parents_pointer.controller.options.get_reference(incomplete_pointers._parents_pointer.me, incomplete_pointers._idx, data)
+            if ref is not None:
+                doc_ref = DocReference(ref, incomplete_pointers)
                 return doc_ref
             doc_obj = DocObject(data, incomplete_pointers)
             return doc_obj
@@ -147,7 +147,7 @@ class DocObject(DocContainer, dict):
     def __init__(self, data: dict, pointers: IncompletePointers):
         super().__init__(pointers)
 
-        if self._pointers.dollar_id_token in data:
+        if self._pointers.controller.options.has_new_base_uri(self, data):
             self._pointers.update_base_uri(data[self._pointers.dollar_id_token])
             self._pointers.controller.add_document(self._pointers.base_uri, self)
 
@@ -159,10 +159,39 @@ class DocObject(DocContainer, dict):
     def resolve_references(self):
         for k, v in self.items():
             if isinstance(v, DocReference):
-                self[k] = v.resolve()
+                while isinstance(v, DocReference):
+                    v = v.resolve()
+                self[k] = v
             elif isinstance(v, DocObject):
                 v.resolve_references()
 
+    @staticmethod
+    def _replace_ref_escapes(ref_part:str) -> str:
+        replacements = [
+            ("~0", "~"),
+            ("~1", "/"),
+            ("%25", "%"),
+            ("%22", '"'),
+        ]
+        ret = ref_part
+        for rep in replacements:
+            ret = ret.replace(*rep)
+        return ret
+
+    def get_node(self, fragment):
+        fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
+        node = self
+        for part in fragment_parts:
+            if part.isnumeric() and isinstance(node, list):
+                node = node[int(part)]
+                continue
+            try:
+                node = node[self._replace_ref_escapes(part)]
+            except KeyError:
+                raise PathReferenceResolutionError(self, fragment)
+            except TypeError:
+                raise PathReferenceResolutionError(self, fragment)
+        return node
 
 class DocArray(DocContainer, list):
 
@@ -186,12 +215,21 @@ class DocReference(DocElement):
 
     def resolve(self):
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
-        if js_ptr.uri != self._pointers.base_uri:
-            doc = self._pointers.controller.get_document(js_ptr.uri)
-        else:
-            doc = self._pointers.document_root
-        node = doc._pointers.document_root.get_node(js_ptr.fragment)
+        try:
+            if js_ptr.uri == self._pointers.schema_root.base_uri:
+                raise Exception("Not an exception, just want to jump to except block")
+            node = self._pointers.controller.get_document(js_ptr)
+        except CircularDependencyError:
+            raise
+        except UnableToLoadDocument:
+            raise
+        except:
+            doc = self._pointers.schema_root
+            node = doc._pointers.schema_root.get_node(js_ptr.fragment)
         return node
+
+    def __repr__(self) -> str:
+        return f"<DocReference {self._reference}>"
 
 class DocValue(DocElement):
 
@@ -289,31 +327,43 @@ class ParseController:
         self._document_cache: Dict[Uri, Document] = dict()
         self._loading: Set[Uri] = set()
 
-    def add_document(self, uri: JsonPointer, doc: DocObject):
-        self._document_cache[uri.uri] = doc.root
-        self._document_cache[uri] = doc
+    def add_document(self, uri: Union[JsonPointer, str], doc: DocObject):
+        if isinstance(uri, str):
+            self._document_cache[uri] = doc
+        else:
+            self._document_cache[repr(uri)] = doc
 
     def get_document_structure(self, uri: Union[JsonPointer, Uri]):
         if isinstance(uri, JsonPointer):
             uri = uri.uri
         if uri in self._document_structure_cache:
             return self._document_structure_cache[uri]
-        json_text = self.loader.load(uri)
+        try:
+            json_text = self.loader.load(uri)
+        except:
+            raise UnableToLoadDocument(f"Could not load '{uri}'")
         structure = self.parser.parse_yaml(json_text)
         self._document_structure_cache[uri] = structure
         return structure
 
-    def get_document(self, uri: Union[JsonPointer, Uri]):
-        if isinstance(uri, JsonPointer):
-            uri = uri.uri
+    def get_document(self, doc_uri: Union[JsonPointer, Uri]):
+        ptr = doc_uri
+        if not isinstance(ptr, JsonPointer):
+            ptr = JsonPointer.from_uri_string(doc_uri)
+        uri = ptr.uri
         if uri in self._loading:
             raise CircularDependencyError(uri)
         if uri in self._document_cache:
-            return self._document_cache[uri]
+            doc = self._document_cache[uri]
+            if ptr.fragment:
+                doc = doc.get_node(ptr.fragment)
+            return doc
         self._loading.add(uri)
         doc = create_document(uri, controller=self)
-        self._document_cache[uri] = doc
+        self.add_document(uri, doc)
         self._loading.remove(uri)
+        if ptr.fragment:
+            doc = doc.get_node(ptr.fragment)
         return doc
 
 
@@ -343,6 +393,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
                 return doc_ref.resolve()
             else:
                 base_class = DocReference
+                structure = structure[initial_pointers.dollar_ref_token]
     else:
         raise Exception(f"Does not support structures that are a {type(structure)}")
 
@@ -350,36 +401,10 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
 
         def __init__(self, structure, pointers: IncompletePointers):
             super().__init__(structure, pointers)
-            if self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(self, "resolve_references"):
-                self.resolve_references()
 
-        @staticmethod
-        def _replace_ref_escapes(ref_part:str) -> str:
-            replacements = [
-                ("~0", "~"),
-                ("~1", "/"),
-                ("%25", "%"),
-                ("%22", '"'),
-            ]
-            ret = ref_part
-            for rep in replacements:
-                ret = ret.replace(*rep)
-            return ret
+    doc_root = DocumentRoot(structure, root_pointers)
+    if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
+        doc_root.resolve_references()
 
-        def get_node(self, fragment):
-            fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
-            node = self
-            for part in fragment_parts:
-                if part.isnumeric() and isinstance(node, list):
-                    node = node[int(part)]
-                    continue
-                try:
-                    node = node[self._replace_ref_escapes(part)]
-                except KeyError:
-                    raise PathReferenceResolutionError(self, fragment)
-                except TypeError:
-                    raise PathReferenceResolutionError(self, fragment)
-            return node
-
-    return DocumentRoot(structure, root_pointers)
+    return doc_root
 

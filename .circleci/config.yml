@@ -76,12 +76,27 @@ jobs:
             sudo pip install pipenv
             pipenv install twine
             pipenv run twine upload dist/*
+  safety_check:
+    executor:
+      name: python/default
+      tag: "3.9"
+    steps:
+      - checkout  # checkout source code to working directory
+      - python/install-packages:
+          pkg-manager: pip
+      - python/install-packages:
+          args: safety
+          pkg-manager: pip
+      - run:
+          command: |
+            safety check -r requirements.txt
 workflows:
   build_test_publish:
     jobs:
       - build_test_3_7
       - build_test_3_8
       - build_test_3_9
+      - safety_check
       - python/test:
           version: "3.10"
           pkg-manager: pip
@@ -94,6 +109,7 @@ workflows:
             - build_test_3_8
             - build_test_3_9
             - build_test_3_10
+            - safety_check
           filters:
             branches:
               only:
@@ -106,7 +122,19 @@ workflows:
             - build_test_3_8
             - build_test_3_9
             - build_test_3_10
+            - safety_check
           filters:
             branches:
               only:
                 - master
+  safety_checks:
+    jobs:
+      - safety_check
+    triggers:
+      - schedule:
+          cron: "0 0 5 * *"
+          filters:
+            branches:
+              only:
+                - master
+      

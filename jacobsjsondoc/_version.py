@@ -1,2 +1,2 @@
-__version_info__ = (0, 12, 0)
+__version_info__ = (0, 12, 1)
 __version__ = ".".join([str(x) for x in list(__version_info__)])
