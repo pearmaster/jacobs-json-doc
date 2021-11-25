@@ -325,8 +325,11 @@ class ParseController:
         self._document_cache: Dict[Uri, Document] = dict()
         self._loading: Set[Uri] = set()
 
-    def add_document(self, uri: JsonPointer, doc: DocObject):
-        self._document_cache[uri.uri] = doc
+    def add_document(self, uri: Union[JsonPointer, str], doc: DocObject):
+        if isinstance(uri, str):
+            self._document_cache[uri] = doc
+        else:
+            self._document_cache[repr(uri)] = doc
 
     def get_document_structure(self, uri: Union[JsonPointer, Uri]):
         if isinstance(uri, JsonPointer):
@@ -396,7 +399,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
             
 
     doc_root = DocumentRoot(structure, root_pointers)
-    controller.add_document(JsonPointer.from_uri_string(uri), doc_root)
+    controller.add_document(uri, doc_root)
     if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
 
