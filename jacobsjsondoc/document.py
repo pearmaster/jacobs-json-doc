@@ -277,7 +277,6 @@ class DocValue(DocElement):
             return None
         return DocValue(value, pointers)
 
-
 class DocInteger(DocValue, int):
 
     def __new__(cls, value: int, pointers: IncompletePointers):
@@ -394,6 +393,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
     base_class = DocObject
     if isinstance(structure, list):
         base_class = DocArray
+    elif isinstance(structure, bool):
+        return structure
     elif isinstance(structure, int):
         base_class = DocInteger
     elif isinstance(structure, float):
