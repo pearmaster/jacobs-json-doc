@@ -27,9 +27,12 @@ class JsonPointer:
         netpath = f"{self.netloc}{self.path}"
         return f"{scheme}{netpath}"
 
-    def __repr__(self):
+    def as_string(self) -> str:
         fragment = f"#{self.fragment}" if self.fragment else ""
         return f"{self.uri}{fragment}"
+
+    def __repr__(self):
+        return self.as_string()
 
     def copy(self) -> JsonPointer:
         return self.__class__(self.scheme, self.netloc, self.path, self.fragment)
