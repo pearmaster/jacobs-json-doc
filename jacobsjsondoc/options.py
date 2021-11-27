@@ -29,31 +29,9 @@ class ParseOptions:
             return node[self.dollar_ref_token]
         return None
 
-class JsonSchemaParseOptions(ParseOptions):
+class JsonSchemaDraft4ParseOptions(ParseOptions):
 
     def _is_unknown_keyword_inside_schema(self, parent):
-        keywords_for_schemas = [
-            "not",
-            "additionalProperties",
-            "dependencies",
-            "dependentSchemas",
-            "if",
-            "then",
-            "else",
-        ]
-        parent_node = parent
-        maximum_iterations = 5
-        while parent_node is not None:
-            maximum_iterations -= 1
-            if maximum_iterations == 0:
-                break
-            grandparent = parent_node._pointers.parent
-            if grandparent is None:
-                break
-            if grandparent.index in keywords_for_schemas:
-                if parent_node.index not in keywords_for_schemas:
-                    return True
-            parent_node = parent_node._pointers.parent
         return False
 
     def _is_inside_enum(self, parent):
@@ -87,3 +65,30 @@ class JsonSchemaParseOptions(ParseOptions):
                 return None
             return node[self.dollar_id_token]
         return None
+
+class JsonSchemaDraft6ParseOptions(JsonSchemaDraft4ParseOptions):
+
+    def _is_unknown_keyword_inside_schema(self, parent):
+        keywords_for_schemas = [
+            "not",
+            "additionalProperties",
+            "dependencies",
+            "dependentSchemas",
+            "if",
+            "then",
+            "else",
+        ]
+        parent_node = parent
+        maximum_iterations = 5
+        while parent_node is not None:
+            maximum_iterations -= 1
+            if maximum_iterations == 0:
+                break
+            grandparent = parent_node._pointers.parent
+            if grandparent is None:
+                break
+            if grandparent.index in keywords_for_schemas:
+                if parent_node.index not in keywords_for_schemas:
+                    return True
+            parent_node = parent_node._pointers.parent
+        return False
