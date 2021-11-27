@@ -147,8 +147,9 @@ class DocObject(DocContainer, dict):
     def __init__(self, data: dict, pointers: IncompletePointers):
         super().__init__(pointers)
 
-        if self._pointers.controller.options.has_new_base_uri(self, data):
-            self._pointers.update_base_uri(data[self._pointers.dollar_id_token])
+        new_base_uri = self._pointers.controller.options.get_base_uri(self, data)
+        if new_base_uri:
+            self._pointers.update_base_uri(new_base_uri)
             self._pointers.controller.add_document(self._pointers.base_uri, self)
 
         for data_key, data_value in data.items():
@@ -177,6 +178,14 @@ class DocObject(DocContainer, dict):
         for rep in replacements:
             ret = ret.replace(*rep)
         return ret
+
+    def has_node(self, fragment):
+        try:
+            self.get_node(fragment)
+        except PathReferenceResolutionError:
+            return False
+        else:
+            return True
 
     def get_node(self, fragment):
         fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
@@ -216,9 +225,11 @@ class DocReference(DocElement):
     def resolve(self):
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
         try:
-            if js_ptr.uri == self._pointers.schema_root.base_uri:
-                raise Exception("Not an exception, just want to jump to except block")
-            node = self._pointers.controller.get_document(js_ptr)
+            if js_ptr.uri == self._pointers.schema_root.base_uri and self._pointers.schema_root.has_node(js_ptr.fragment):
+                doc = self._pointers.schema_root
+                node = doc._pointers.schema_root.get_node(js_ptr.fragment)
+            else:
+                node = self._pointers.controller.get_document(js_ptr)
         except CircularDependencyError:
             raise
         except UnableToLoadDocument:
@@ -265,7 +276,6 @@ class DocValue(DocElement):
         elif value is None:
             return None
         return DocValue(value, pointers)
-
 
 class DocInteger(DocValue, int):
 
@@ -351,17 +361,20 @@ class ParseController:
         if not isinstance(ptr, JsonPointer):
             ptr = JsonPointer.from_uri_string(doc_uri)
         uri = ptr.uri
-        if uri in self._loading:
-            raise CircularDependencyError(uri)
-        if uri in self._document_cache:
-            doc = self._document_cache[uri]
+        if ptr.as_string() in self._loading:
+            raise CircularDependencyError(ptr.as_string())
+        if ptr.as_string() in self._document_cache:
+            doc = self._document_cache[ptr.as_string()]
+            return doc
+        if ptr.uri in self._document_cache:
+            doc = self._document_cache[ptr.uri]
             if ptr.fragment:
                 doc = doc.get_node(ptr.fragment)
             return doc
-        self._loading.add(uri)
+        self._loading.add(ptr.as_string())
         doc = create_document(uri, controller=self)
         self.add_document(uri, doc)
-        self._loading.remove(uri)
+        self._loading.remove(ptr.as_string())
         if ptr.fragment:
             doc = doc.get_node(ptr.fragment)
         return doc
@@ -380,6 +393,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
     base_class = DocObject
     if isinstance(structure, list):
         base_class = DocArray
+    elif isinstance(structure, bool):
+        return structure
     elif isinstance(structure, int):
         base_class = DocInteger
     elif isinstance(structure, float):
