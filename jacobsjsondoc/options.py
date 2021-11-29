@@ -1,5 +1,5 @@
 
-from typing import List, Callable
+from typing import List, Callable, Optional
 
 from enum import Enum
 
@@ -56,17 +56,23 @@ class JsonSchemaParseOptions(ParseOptions):
             parent_node = parent_node._pointers.parent
         return False
 
-    def _is_inside_enum(self, parent):
+    def _is_inside_properties(self, parent, prop_names:list) -> Optional[int]:
         parent_node = parent
-        maximum_iterations = 200
+        iterations = 0
         while parent_node is not None:
-            maximum_iterations -= 1
-            if maximum_iterations == 0:
+            iterations += 1
+            if iterations == 100:
                 raise Exception("Too Many Interations")
-            if parent_node.index == "enum" or parent_node.index == "const":
-                return True
+            if parent_node.index in prop_names:
+                return iterations
             parent_node = parent_node._pointers.parent
-        return False
+        return None
+
+    def _is_inside_enum(self, parent) -> Optional[int]:
+        return self._is_inside_properties(parent, prop_names=["enum", "const"])
+
+    def _is_inside_definitions(self, parent) -> Optional[int]:
+        return self._is_inside_properties(parent, prop_names=["definitions"])
 
     def get_reference(self, parent, idx, node):
         if self.dollar_ref_token in node:
@@ -83,7 +89,35 @@ class JsonSchemaParseOptions(ParseOptions):
                 return None
             if self._is_inside_enum(parent):
                 return None
-            if self._is_unknown_keyword_inside_schema(parent):
+            steps_to_definitions = self._is_inside_definitions(parent)
+            if (not ) and self._is_unknown_keyword_inside_schema(parent):
                 return None
             return node[self.dollar_id_token]
+        return None
+
+class JsonSchemaDraft6ParseOptions(JsonSchemaDraft4ParseOptions):
+
+    def _is_unknown_keyword_inside_schema(self, parent) -> Optional[int]:
+        keywords_for_schemas = [
+            "not",
+            "additionalProperties",
+            "dependencies",
+            "dependentSchemas",
+            "if",
+            "then",
+            "else",
+        ]
+        parent_node = parent
+        iterations = 0
+        while parent_node is not None:
+            iterations += 1
+            if iterations == 10:
+                break
+            grandparent = parent_node._pointers.parent
+            if grandparent is None:
+                break
+            if grandparent.index in keywords_for_schemas:
+                if parent_node.index not in keywords_for_schemas:
+                    return iterations
+            parent_node = parent_node._pointers.parent
         return None
