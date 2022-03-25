@@ -350,3 +350,40 @@ class TestInvalid(unittest.TestCase):
         self.assertIsInstance(self.doc['foo'], DocReference)
         with self.assertRaises(PathReferenceResolutionError) as context:
             self.doc['foo'].resolve()
+
+class TestNotCircularDependency(unittest.TestCase):
+
+    def setUp(self):
+        self.data = """
+        {
+            '$id': "http://example.com/a.json", 
+            '$defs': {
+                'x': {
+                    '$id': "http://example.com/b/c.json", 
+                    'not': {
+                        '$defs': {
+                            'y': {
+                                '$id': "d.json", 
+                                'type': "number"
+                            }
+                        }
+                    }
+                }
+            },
+            'allOf': [
+                '$ref': "http://example.com/b/d.json"
+            ]
+        }
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("1", self.data)
+        self.doc = create_document(uri="1", loader=ppl)
+    
+    def test_has_reference(self):
+        self.assertIsInstance(self.doc['allOf'][0], DocReference)
+
+    def test_reference_isnt_circular_dependency(self):
+        resolved_doc = self.doc['allOf'][0].resolve()
+        self.assertIsInstance(resolved_doc, DocObject)
+        self.assertIn('type', resolved_doc)
+        self.assertEqual(resolved_doc['type'], "number")
