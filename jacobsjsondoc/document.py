@@ -403,12 +403,17 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
         base_class = DocString
     elif isinstance(structure, dict):
         if initial_pointers.dollar_ref_token in structure:
-            if initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
-                doc_ref = DocReference(structure[initial_pointers.dollar_ref_token], root_pointers)
-                return doc_ref.resolve()
+            if len(structure) == 1:
+                if initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
+                    doc_ref = DocReference(structure[initial_pointers.dollar_ref_token], root_pointers)
+                    return doc_ref.resolve()
+                else:
+                    base_class = DocReference
+                    structure = structure[initial_pointers.dollar_ref_token]
+            elif initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_WHEN_REQUIRED:
+                pass
             else:
-                base_class = DocReference
-                structure = structure[initial_pointers.dollar_ref_token]
+                raise Exception(f"Ref resolution mode cannot handle structure with '{initial_pointers.dollar_ref_token}' and other properties")
     else:
         raise Exception(f"Does not support structures that are a {type(structure)}")
 
