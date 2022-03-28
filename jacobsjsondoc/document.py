@@ -155,7 +155,15 @@ class DocObject(DocContainer, dict):
         for data_key, data_value in data.items():
             line, _ = data.lc.value(data_key)
             inc_ptrs = IncompletePointers(self._pointers, data_key, line)
-            self[data_key] = self.construct(data_value, inc_ptrs)
+            if len(data) > 1 and self._pointers.controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_WHEN_REQUIRED and data_key == self._pointers.controller.options.dollar_ref_token:
+                dref = DocReference(data_value, inc_ptrs)
+                dobj = dref.resolve()
+                if not isinstance(dobj, DocObject):
+                    raise ReferenceResolutionError(f"In the context of '{self._pointers.controller.options.dollar_ref_token}' appearing as a property in an object, it must resove to an object")
+                for dobj_key, dobj_value in dobj.items():
+                    self[dobj_key] = dobj_value
+            else:
+                self[data_key] = self.construct(data_value, inc_ptrs)
 
     def resolve_references(self):
         for k, v in self.items():
@@ -306,7 +314,6 @@ class DocString(DocValue, str):
         # It is here to correctly load a poop emoji found
         # in the minLength.json JSON-Schema test data.
         new_value = json.loads(json.dumps(value))
-        new_len = len(new_value)
         ds = str.__new__(DocString, new_value)
         ds.__init__(new_value, pointers)
         return ds
