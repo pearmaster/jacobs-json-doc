@@ -155,24 +155,30 @@ class DocObject(DocContainer, dict):
         for data_key, data_value in data.items():
             line, _ = data.lc.value(data_key)
             inc_ptrs = IncompletePointers(self._pointers, data_key, line)
-            if len(data) > 1 and self._pointers.controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_WHEN_REQUIRED and data_key == self._pointers.controller.options.dollar_ref_token:
-                dref = DocReference(data_value, inc_ptrs)
-                dobj = dref.resolve()
-                if not isinstance(dobj, DocObject):
-                    raise ReferenceResolutionError(f"In the context of '{self._pointers.controller.options.dollar_ref_token}' appearing as a property in an object, it must resove to an object")
-                for dobj_key, dobj_value in dobj.items():
-                    self[dobj_key] = dobj_value
+            if data_key == self._pointers.dollar_ref_token and self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+                self[data_key] = DocReference(data_value, inc_ptrs)
             else:
                 self[data_key] = self.construct(data_value, inc_ptrs)
 
     def resolve_references(self):
+        additional_properties = {}
+        remove_reference = False
         for k, v in self.items():
             if isinstance(v, DocReference):
                 while isinstance(v, DocReference):
                     v = v.resolve()
-                self[k] = v
+                if k == self._pointers.dollar_ref_token and self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+                    if not isinstance(v, DocObject):
+                        raise ReferenceResolutionError("$ref property didn't resolve to an object")
+                    additional_properties.update(v)
+                    remove_reference = True
+                else:
+                    self[k] = v
             elif isinstance(v, DocObject):
                 v.resolve_references()
+        self.update(additional_properties)
+        if remove_reference:
+            del self[self._pointers.dollar_ref_token]
 
     @staticmethod
     def _replace_ref_escapes(ref_part:str) -> str:
@@ -417,7 +423,7 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
                 else:
                     base_class = DocReference
                     structure = structure[initial_pointers.dollar_ref_token]
-            elif initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_WHEN_REQUIRED:
+            elif initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
                 pass
             else:
                 raise Exception(f"Ref resolution mode cannot handle structure with '{initial_pointers.dollar_ref_token}' and other properties")
@@ -430,8 +436,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
             super().__init__(structure, pointers)
 
     doc_root = DocumentRoot(structure, root_pointers)
-    if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
+    if controller.options.ref_resolution_mode in [RefResolutionMode.RESOLVE_REFERENCES, RefResolutionMode.RESOLVE_REF_PROPERTIES] and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
-
+    
     return doc_root
 

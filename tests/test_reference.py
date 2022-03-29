@@ -388,6 +388,34 @@ class TestNotCircularDependency(unittest.TestCase):
         self.assertIn('type', resolved_doc)
         self.assertEqual(resolved_doc['type'], "number")
 
+class TestNotCircularDependency2(unittest.TestCase):
+
+    def setUp(self):
+        self.data = """
+        {
+            "type": "object",
+            "$ref": "#/$defs/bar",
+            "properties": {
+                "foo": { "type": "string" }
+            },
+            "unevaluatedProperties": false,
+            "$defs": {
+                "bar": {
+                    "properties": {
+                        "bar": { "type": "string" }
+                    }
+                }
+            }
+        }
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("1", self.data)
+        opts = ParseOptions()
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
+        self.doc = create_document(uri="1", loader=ppl, options=opts)
+
+    def test_reference_must_have_resolved(self):
+        self.assertNotIn('$ref', self.doc)
 
 class TestRefPropertyWithOthers(unittest.TestCase):
 
@@ -403,7 +431,7 @@ class TestRefPropertyWithOthers(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("1", self.data)
         opts = ParseOptions()
-        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_WHEN_REQUIRED
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
         self.doc = create_document(uri="1", loader=ppl, options=opts)
     
     def test_is_object(self):
