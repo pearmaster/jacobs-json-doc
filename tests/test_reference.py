@@ -1,7 +1,7 @@
 import unittest
 from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonPointer
-from jacobsjsondoc.document import create_document, DocReference, DocObject, Document, UnableToLoadDocument, PathReferenceResolutionError
+from jacobsjsondoc.document import create_document, DocReference, DocObject, Document, UnableToLoadDocument, PathReferenceResolutionError, DocString
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
@@ -387,3 +387,67 @@ class TestNotCircularDependency(unittest.TestCase):
         self.assertIsInstance(resolved_doc, DocObject)
         self.assertIn('type', resolved_doc)
         self.assertEqual(resolved_doc['type'], "number")
+
+class TestNotCircularDependency2(unittest.TestCase):
+
+    def setUp(self):
+        self.data = """
+        {
+            "type": "object",
+            "$ref": "#/$defs/bar",
+            "properties": {
+                "foo": { "type": "string" }
+            },
+            "unevaluatedProperties": false,
+            "$defs": {
+                "bar": {
+                    "properties": {
+                        "bar": { "type": "string" }
+                    }
+                }
+            }
+        }
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("1", self.data)
+        opts = ParseOptions()
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
+        self.doc = create_document(uri="1", loader=ppl, options=opts)
+
+    def test_reference_must_have_resolved(self):
+        self.assertNotIn('$ref', self.doc)
+
+class TestRefPropertyWithOthers(unittest.TestCase):
+
+    def setUp(self):
+        self.data = """
+        $defs: 
+            valueRange:
+                minimum: 0
+                maximum: 0
+        type: integer
+        $ref: "#/$defs/valueRange"
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("1", self.data)
+        opts = ParseOptions()
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
+        self.doc = create_document(uri="1", loader=ppl, options=opts)
+    
+    def test_is_object(self):
+        self.assertIsInstance(self.doc, DocObject)
+
+    def test_is_for_integer(self):
+        self.assertIsInstance(self.doc['type'], DocString)
+        self.assertEqual(self.doc['type'], "integer")
+
+    def test_ref_resolved(self):
+        self.assertNotIn("$ref", self.doc)
+
+    def test_has_minimum(self):
+        self.assertIsInstance(self.doc['minimum'], int)
+        self.assertEqual(self.doc['minimum'], 0)
+    
+    def test_has_maximum(self):
+        self.assertIsInstance(self.doc['maximum'], int)
+        self.assertEqual(self.doc['maximum'], 0)

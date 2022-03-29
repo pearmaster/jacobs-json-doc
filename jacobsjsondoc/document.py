@@ -155,16 +155,30 @@ class DocObject(DocContainer, dict):
         for data_key, data_value in data.items():
             line, _ = data.lc.value(data_key)
             inc_ptrs = IncompletePointers(self._pointers, data_key, line)
-            self[data_key] = self.construct(data_value, inc_ptrs)
+            if data_key == self._pointers.dollar_ref_token and self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+                self[data_key] = DocReference(data_value, inc_ptrs)
+            else:
+                self[data_key] = self.construct(data_value, inc_ptrs)
 
     def resolve_references(self):
+        additional_properties = {}
+        remove_reference = False
         for k, v in self.items():
             if isinstance(v, DocReference):
                 while isinstance(v, DocReference):
                     v = v.resolve()
-                self[k] = v
+                if k == self._pointers.dollar_ref_token and self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+                    if not isinstance(v, DocObject):
+                        raise ReferenceResolutionError("$ref property didn't resolve to an object")
+                    additional_properties.update(v)
+                    remove_reference = True
+                else:
+                    self[k] = v
             elif isinstance(v, DocObject):
                 v.resolve_references()
+        self.update(additional_properties)
+        if remove_reference:
+            del self[self._pointers.dollar_ref_token]
 
     @staticmethod
     def _replace_ref_escapes(ref_part:str) -> str:
@@ -306,7 +320,6 @@ class DocString(DocValue, str):
         # It is here to correctly load a poop emoji found
         # in the minLength.json JSON-Schema test data.
         new_value = json.loads(json.dumps(value))
-        new_len = len(new_value)
         ds = str.__new__(DocString, new_value)
         ds.__init__(new_value, pointers)
         return ds
@@ -403,12 +416,17 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
         base_class = DocString
     elif isinstance(structure, dict):
         if initial_pointers.dollar_ref_token in structure:
-            if initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
-                doc_ref = DocReference(structure[initial_pointers.dollar_ref_token], root_pointers)
-                return doc_ref.resolve()
+            if len(structure) == 1:
+                if initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
+                    doc_ref = DocReference(structure[initial_pointers.dollar_ref_token], root_pointers)
+                    return doc_ref.resolve()
+                else:
+                    base_class = DocReference
+                    structure = structure[initial_pointers.dollar_ref_token]
+            elif initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+                pass
             else:
-                base_class = DocReference
-                structure = structure[initial_pointers.dollar_ref_token]
+                raise Exception(f"Ref resolution mode cannot handle structure with '{initial_pointers.dollar_ref_token}' and other properties")
     else:
         raise Exception(f"Does not support structures that are a {type(structure)}")
 
@@ -418,8 +436,8 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
             super().__init__(structure, pointers)
 
     doc_root = DocumentRoot(structure, root_pointers)
-    if controller.options.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES and hasattr(doc_root, "resolve_references"):
+    if controller.options.ref_resolution_mode in [RefResolutionMode.RESOLVE_REFERENCES, RefResolutionMode.RESOLVE_REF_PROPERTIES] and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
-
+    
     return doc_root
 
