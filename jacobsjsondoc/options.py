@@ -1,11 +1,12 @@
 
-from typing import List, Callable, Optional
+from typing import Optional
 
 from enum import Enum
 
 class RefResolutionMode(Enum):
     USE_REFERENCES_OBJECTS = 0
     RESOLVE_REFERENCES = 1
+    RESOLVE_REF_PROPERTIES = 2
 
 
 class ParseOptions:
@@ -28,6 +29,7 @@ class ParseOptions:
                 return None
             return node[self.dollar_ref_token]
         return None
+
 
 class JsonSchemaParseOptions(ParseOptions):
 
