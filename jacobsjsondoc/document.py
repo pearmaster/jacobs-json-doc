@@ -172,13 +172,13 @@ class DocObject(DocContainer, dict):
                 if k == self._pointers.dollar_ref_token and self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
                     if not isinstance(v, DocObject):
                         raise ReferenceResolutionError("$ref property didn't resolve to an object")
-                    additional_properties.update(v)
+                    merge_dicts(additional_properties, v)
                     remove_reference = True
                 else:
                     self[k] = v
             elif isinstance(v, DocObject):
                 v.resolve_references()
-        self.update(additional_properties)
+        merge_dicts(self, additional_properties)
         if remove_reference:
             del self[self._pointers.dollar_ref_token]
 

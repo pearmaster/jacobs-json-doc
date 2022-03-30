@@ -451,3 +451,41 @@ class TestRefPropertyWithOthers(unittest.TestCase):
     def test_has_maximum(self):
         self.assertIsInstance(self.doc['maximum'], int)
         self.assertEqual(self.doc['maximum'], 0)
+
+class TestRefPropertyMergeWithOthers(unittest.TestCase):
+
+    def setUp(self):
+        self.data = """
+        $defs: 
+            objProps:
+                properties:
+                    bar:
+                        type: string
+        type: object
+        properties:
+            foo:
+                type: integer
+        $ref: "#/$defs/objProps"
+        """
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("1", self.data)
+        opts = ParseOptions()
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
+        self.doc = create_document(uri="1", loader=ppl, options=opts)
+    
+    def test_is_object(self):
+        self.assertIsInstance(self.doc, DocObject)
+
+    def test_is_for_object(self):
+        self.assertIsInstance(self.doc['type'], DocString)
+        self.assertEqual(self.doc['type'], "object")
+        self.assertIsInstance(self.doc['properties'], DocObject)
+
+    def test_ref_resolved(self):
+        self.assertNotIn("$ref", self.doc)
+
+    def test_properties(self):
+        self.assertDictEqual(self.doc['properties'], {
+            "foo": {"type": "integer"},
+            "bar": {"type": "string"},
+        })
