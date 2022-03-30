@@ -7,6 +7,8 @@ from .loader import LoaderBaseClass, FilesystemLoader
 from .parser import Parser
 from .reference import JsonPointer
 from .options import ParseOptions, RefResolutionMode
+from .util import merge_dicts
+
 
 IndexKey = Union[str, int]
 Uri = str
