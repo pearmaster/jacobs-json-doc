@@ -176,7 +176,7 @@ class DocObject(DocContainer, dict):
                     remove_reference = True
                 else:
                     self[k] = v
-            elif isinstance(v, DocObject):
+            elif isinstance(v, DocObject) or isinstance(v, DocArray):
                 v.resolve_references()
         merge_dicts(self, additional_properties)
         if remove_reference:
@@ -227,6 +227,16 @@ class DocArray(DocContainer, list):
             inc_ptrs = IncompletePointers(self._pointers, list_index, line)
             self.append(self.construct(data_value, inc_ptrs))
 
+    def resolve_references(self):
+        for index, item in enumerate(self.items()):
+            if isinstance(item, DocReference):
+                while isinstance(item, DocReference):
+                    self[index] = item.resolve() 
+            elif isinstance(item, DocObject) or isinstance(item, DocArray):
+                v.resolve_references()
+        merge_dicts(self, additional_properties)
+        if remove_reference:
+            del self[self._pointers.dollar_ref_token]
 
 class DocReference(DocElement):
 

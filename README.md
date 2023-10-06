@@ -36,12 +36,10 @@ The [test_document.py](./tests/test_document.py) file is a good source for examp
 A very brief example is:
 
 ```py
-from jacobsjsondoc.loader import FilesystemLoader
-from jacobsjsondoc.document import Document, RefResolutionMode
+from jacobsjsondoc.document import create_document
 
 my_document = "/path/to/example.yaml"
-loader = FilesystemLoader()
-doc = Document(uri=my_document, loader=loader)
+doc = create_document(uri=my_document)
 print(doc['a']['b'])
 print(doc['a']['b'].line)
 ```
