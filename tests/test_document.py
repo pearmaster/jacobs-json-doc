@@ -4,6 +4,7 @@ from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.document import create_document, RefResolutionMode, DocReference, DocValue, DocObject, CircularDependencyError
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 
+#remote
 SIMPLE_YAML = """
 jacob:
     brunson:
@@ -22,6 +23,7 @@ SIMPLE_WITH_INTEGER = """
 thevalue: 42
 """
 
+#middle
 YAML_WITH_REF = """
 house:
     var: "this is the value of the var"
@@ -31,6 +33,7 @@ house:
         $ref: "remote#/def/foo"
 """
 
+#local
 ANOTHER_YAML_WITH_REF = """
 colorado:
     denver: 1
@@ -48,6 +51,15 @@ myobject:
     mynull: null
 """
 
+YAML_WITH_ARRAY_OF_REFERENCES = """
+anInt: 1
+aNum: 1.1
+aStr: "hi"
+myarray:
+    - $ref: "#/anInt"
+    - $ref: "#/aNum"
+    - $ref: "#/aStr" 
+"""
 
 class TestDocument(unittest.TestCase):
 
@@ -69,6 +81,16 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(doc['jacob'].index, "jacob")
         self.assertEqual(doc['jacob']['brunson'].index, "brunson")
         self.assertEqual(doc['jacob']['brunson'][0].index, 0)
+
+    def test_array_ref_resolution(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("Simple", YAML_WITH_ARRAY_OF_REFERENCES)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
+        doc = create_document(uri="Simple", loader=ppl, options=options)
+        self.assertEqual(doc['myarray'][0], 1)
+        self.assertEqual(doc['myarray'][1], 1.1)
+        self.assertEqual(doc['myarray'][2], "hi")
 
     def test_local_ref_use_reference_objects(self):
         ppl = PrepopulatedLoader()
