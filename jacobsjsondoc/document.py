@@ -47,6 +47,9 @@ class IncompletePointers:
             new_ptr.line = self._line
         return new_ptr
 
+    def __repr__(self) -> str:
+        return "<IncompletePointers {}>".format(self._parents_pointer)
+
 class ElementPointers:
 
     def __init__(self, retrieval_uri: Union[JsonPointer, str], node: DocElement, controller: ParseController):
@@ -90,6 +93,8 @@ class ElementPointers:
         new_ptr.idx = idx
         return new_ptr
 
+    def __repr__(self) -> str:
+        return "<ElementPointers {}>".format(self.retrieval_uri)
 
 class DocElement:
 
@@ -221,22 +226,18 @@ class DocObject(DocContainer, dict):
 class DocArray(DocContainer, list):
 
     def __init__(self, data: list, pointers: IncompletePointers):
-        super().__init__(pointers)
+        DocContainer.__init__(self, pointers)
         for list_index, data_value in enumerate(data):
             line, _ = data.lc.data[list_index]
             inc_ptrs = IncompletePointers(self._pointers, list_index, line)
             self.append(self.construct(data_value, inc_ptrs))
 
     def resolve_references(self):
-        for index, item in enumerate(self.items()):
+        for index, item in enumerate(self):
             if isinstance(item, DocReference):
-                while isinstance(item, DocReference):
-                    self[index] = item.resolve() 
+                self[index] = item.resolve()
             elif isinstance(item, DocObject) or isinstance(item, DocArray):
-                v.resolve_references()
-        merge_dicts(self, additional_properties)
-        if remove_reference:
-            del self[self._pointers.dollar_ref_token]
+                item.resolve_references()
 
 class DocReference(DocElement):
 
@@ -253,9 +254,9 @@ class DocReference(DocElement):
         try:
             if js_ptr.uri == self._pointers.schema_root.base_uri and self._pointers.schema_root.has_node(js_ptr.fragment):
                 doc = self._pointers.schema_root
-                node = doc._pointers.schema_root.get_node(js_ptr.fragment)
             else:
-                node = self._pointers.controller.get_document(js_ptr)
+                doc = self._pointers.controller.get_document(js_ptr)
+            node = doc._pointers.schema_root.get_node(js_ptr.fragment)
         except CircularDependencyError:
             raise
         except UnableToLoadDocument:
