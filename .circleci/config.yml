@@ -101,6 +101,10 @@ workflows:
           version: "3.10"
           pkg-manager: pip
           name: build_test_3_10
+      - python/test:
+          version: "3.11"
+          pkg-manager: pip
+          name: build_test_3_11
       - test_pypi_publish:
           context:
             - python_twine_test
