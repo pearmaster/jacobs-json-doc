@@ -17,7 +17,7 @@ class ParseOptions:
         self.dollar_ref_token:str = "$ref"
 
     def get_base_uri(self, parent, node):
-        if self.dollar_id_token in node:
+        if self.dollar_id_token in node and self.dollar_ref_token not in node:
             if not isinstance(node[self.dollar_id_token], str):
                 return None
             return node[self.dollar_id_token]
