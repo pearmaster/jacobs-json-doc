@@ -61,6 +61,8 @@ myarray:
     - $ref: "#/aStr" 
 """
 
+
+
 class TestDocument(unittest.TestCase):
 
     def test_lines(self):
@@ -253,6 +255,41 @@ class TestDocumentBooleanRoot(unittest.TestCase):
 
     def test_loads_boolean_root(self):
         self.assertTrue(self.doc)
+
+CIRCULAR_DOC_LEFT = """
+$defs:
+    leftObject:
+        type: object
+        properties:
+            ri:
+                $ref: "right#/$defs/rightInt"
+    leftString:
+        type: string
+"""
+
+CIRCULAR_DOC_RIGHT = """
+$defs:
+    rightObject:
+        type: object
+        properties:
+            ls:
+                $ref: "left#/$defs/leftString"
+    rightInt:
+        type: integer
+"""
+class TestCrossReferencingDocs(unittest.TestCase):
+
+    def setUp(self):
+        ppl = PrepopulatedLoader()
+        ppl.prepopulate("left", CIRCULAR_DOC_LEFT)
+        ppl.prepopulate("right", CIRCULAR_DOC_RIGHT)
+        options = ParseOptions()
+        options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
+        self.doc = create_document(uri="left", loader=ppl, options=options)
+
+    def test_left_uses_right_int(self):
+        self.assertEqual(self.doc["$defs"]["leftObject"]["type"], "object")
+        self.assertEqual(self.doc["$defs"]["leftObject"]["properties"]["ri"]["type"], "integer")
 
 if __name__ == '__main__':
     unittest.main()
