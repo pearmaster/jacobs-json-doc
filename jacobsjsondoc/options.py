@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 
 from enum import Enum
 
@@ -11,21 +11,21 @@ class RefResolutionMode(Enum):
 
 class ParseOptions:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.ref_resolution_mode: RefResolutionMode = (
             RefResolutionMode.USE_REFERENCES_OBJECTS
         )
         self.dollar_id_token: str = "$id"
         self.dollar_ref_token: str = "$ref"
 
-    def get_base_uri(self, parent, node):
+    def get_base_uri(self, parent: Any, node: Any) -> Optional[str]:
         if self.dollar_id_token in node:
             if not isinstance(node[self.dollar_id_token], str):
                 return None
             return node[self.dollar_id_token]
         return None
 
-    def get_reference(self, parent, idx, node):
+    def get_reference(self, parent: Any, idx: Any, node: Any) -> Optional[str]:
         if self.dollar_ref_token in node:
             if not isinstance(node[self.dollar_ref_token], str):
                 return None
@@ -35,7 +35,7 @@ class ParseOptions:
 
 class JsonSchemaParseOptions(ParseOptions):
 
-    def _is_unknown_keyword_inside_schema(self, parent) -> Optional[int]:
+    def _is_unknown_keyword_inside_schema(self, parent: Any) -> Optional[int]:
         keywords_for_schemas = [
             "not",
             "additionalProperties",
@@ -54,31 +54,33 @@ class JsonSchemaParseOptions(ParseOptions):
             grandparent = parent_node._pointers.parent
             if grandparent is None:
                 break
-            if grandparent.index in keywords_for_schemas:
-                if parent_node.index not in keywords_for_schemas:
+            if grandparent.elem_index in keywords_for_schemas:
+                if parent_node.elem_index not in keywords_for_schemas:
                     return iterations
             parent_node = parent_node._pointers.parent
         return None
 
-    def _is_inside_properties(self, parent, prop_names: list) -> Optional[int]:
+    def _is_inside_properties(
+        self, parent: Any, prop_names: list[str]
+    ) -> Optional[int]:
         parent_node = parent
         iterations = 0
         while parent_node is not None:
             iterations += 1
             if iterations == 100:
                 raise Exception("Too Many Interations")
-            if parent_node.index in prop_names:
+            if parent_node.elem_index in prop_names:
                 return iterations
             parent_node = parent_node._pointers.parent
         return None
 
-    def _is_inside_enum(self, parent) -> Optional[int]:
+    def _is_inside_enum(self, parent: Any) -> Optional[int]:
         return self._is_inside_properties(parent, prop_names=["enum", "const"])
 
-    def _is_inside_definitions(self, parent) -> Optional[int]:
+    def _is_inside_definitions(self, parent: Any) -> Optional[int]:
         return self._is_inside_properties(parent, prop_names=["definitions"])
 
-    def get_reference(self, parent, idx, node):
+    def get_reference(self, parent: Any, idx: Any, node: Any) -> Optional[str]:  # type: ignore[override]
         if self.dollar_ref_token in node:
             if not isinstance(node[self.dollar_ref_token], str):
                 return None
@@ -87,7 +89,7 @@ class JsonSchemaParseOptions(ParseOptions):
             return node[self.dollar_ref_token]
         return None
 
-    def get_base_uri(self, parent, node):
+    def get_base_uri(self, parent: Any, node: Any) -> Optional[str]:  # type: ignore[override]
         if self.dollar_id_token in node:
             if not isinstance(node[self.dollar_id_token], str):
                 return None

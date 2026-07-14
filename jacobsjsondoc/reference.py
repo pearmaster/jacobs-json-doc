@@ -6,7 +6,7 @@ from typing import Union
 
 class JsonPointer:
 
-    def __init__(self, scheme, netloc, path, fragment):
+    def __init__(self, scheme: str, netloc: str, path: str, fragment: str):
         self.scheme = scheme
         self.netloc = netloc
         self.path = path
@@ -31,16 +31,18 @@ class JsonPointer:
         fragment = f"#{self.fragment}" if self.fragment else ""
         return f"{self.uri}{fragment}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.as_string()
 
     def copy(self) -> JsonPointer:
         return self.__class__(self.scheme, self.netloc, self.path, self.fragment)
 
-    def to(self, reference: Union[str, JsonPointer]):
-        new_ref = reference
+    def to(self, reference: Union[str, JsonPointer]) -> JsonPointer:
+        new_ref: JsonPointer
         if isinstance(reference, str):
             new_ref = self.from_uri_string(reference)
+        else:
+            new_ref = reference
         if new_ref.scheme:
             self.scheme = new_ref.scheme
         if new_ref.netloc:
@@ -61,11 +63,15 @@ class JsonPointer:
             self.fragment = new_ref.fragment
         return self
 
-    def __eq__(self, other: Union[JsonPointer, str]):
-        alt = other
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, (JsonPointer, str)):
+            return NotImplemented  # type: ignore[return-value]
+        alt: JsonPointer
         if isinstance(other, str):
             alt = self.from_uri_string(other)
+        else:
+            alt = other
         return self.__repr__() == alt.__repr__()
 
-    def __hash__(self):
-        return self.__repr__().__hash__()
+    def __hash__(self) -> int:
+        return hash(self.__repr__())

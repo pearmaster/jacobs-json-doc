@@ -21,11 +21,16 @@ tasks:
     cmds:
       - uv run pytest tests/
 
+  typecheck:
+    desc: Type-check code with Mypy
+    cmds:
+      - uv run mypy jacobsjsondoc/
+
   build:
     desc: Build the package
     cmds:
       - uv build
 
   check:
-    desc: Run format, lint, and test
-    deps: [format, lint, test]
+    desc: Run format, lint, typecheck, and test
+    deps: [format, lint, typecheck, test]

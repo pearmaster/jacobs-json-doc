@@ -84,9 +84,9 @@ class TestDocument(unittest.TestCase):
         ppl.prepopulate("Simple", SIMPLE_YAML)
         doc = create_document(uri="Simple", loader=ppl)
 
-        self.assertEqual(doc["jacob"].index, "jacob")
-        self.assertEqual(doc["jacob"]["brunson"].index, "brunson")
-        self.assertEqual(doc["jacob"]["brunson"][0].index, 0)
+        self.assertEqual(doc["jacob"].elem_index, "jacob")
+        self.assertEqual(doc["jacob"]["brunson"].elem_index, "brunson")
+        self.assertEqual(doc["jacob"]["brunson"][0].elem_index, 0)
 
     def test_array_ref_resolution(self):
         ppl = PrepopulatedLoader()

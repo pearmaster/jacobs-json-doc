@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from typing import Optional, Union, Set, Dict, Any
+from typing import Optional, Union, Set, Dict, Any, Type
 
 from .loader import LoaderBaseClass, FilesystemLoader
 from .parser import Parser
@@ -18,12 +18,12 @@ class ReferenceResolutionError(Exception):
 
 class PathReferenceResolutionError(ReferenceResolutionError):
 
-    def __init__(self, doc, path):
+    def __init__(self, doc: Any, path: str) -> None:
         super().__init__(f"Could not resolve fragment: '{path}' from {doc}")
 
 
 class CircularDependencyError(ReferenceResolutionError):
-    def __init__(self, uri):
+    def __init__(self, uri: str) -> None:
         super().__init__(
             f"Circular dependency detected when trying to load '{uri}' a second time"
         )
@@ -35,13 +35,15 @@ class UnableToLoadDocument(Exception):
 
 class IncompletePointers:
 
-    def __init__(self, parents_pointer: ElementPointers, idx, line=None):
+    def __init__(
+        self, parents_pointer: ElementPointers, idx: Any, line: Any = None
+    ) -> None:
         self._parents_pointer = parents_pointer
         self._idx = idx
         self._line = line
 
     @property
-    def dollar_ref_token(self):
+    def dollar_ref_token(self) -> str:
         return self._parents_pointer.controller.options.dollar_ref_token
 
     def complete(self, node: DocElement) -> ElementPointers:
@@ -59,9 +61,9 @@ class ElementPointers:
     def __init__(
         self,
         retrieval_uri: Union[JsonPointer, str],
-        node: DocElement,
+        node: Optional[DocElement],
         controller: ParseController,
-    ):
+    ) -> None:
         if isinstance(retrieval_uri, JsonPointer):
             self.retrieval_uri = retrieval_uri
         else:
@@ -70,28 +72,28 @@ class ElementPointers:
         self.schema_root = node
         self.document_root = node
         self.me = node
-        self.parent = None
-        self.idx = None
-        self.line = None
+        self.parent: Optional[DocElement] = None
+        self.idx: Optional[IndexKey] = None
+        self.line: Optional[int] = None
         self.base_uri = self.retrieval_uri.copy()
 
     @property
-    def dollar_ref_token(self):
+    def dollar_ref_token(self) -> str:
         return self.controller.options.dollar_ref_token
 
     @property
-    def dollar_id_token(self):
+    def dollar_id_token(self) -> str:
         return self.controller.options.dollar_id_token
 
     @property
-    def ref_resolution_mode(self):
+    def ref_resolution_mode(self) -> RefResolutionMode:
         return self.controller.options.ref_resolution_mode
 
-    def update_base_uri(self, uri: str):
+    def update_base_uri(self, uri: str) -> None:
         self.base_uri.to(uri)
         self.schema_root = self.me
 
-    def child(self, idx, node):
+    def child(self, idx: Any, node: DocElement) -> ElementPointers:
         new_ptr = ElementPointers(self.retrieval_uri.copy(), node, self.controller)
         if self.schema_root is not None:
             new_ptr.schema_root = self.schema_root
@@ -108,30 +110,30 @@ class ElementPointers:
 
 class DocElement:
 
-    def __init__(self, pointers: IncompletePointers):
+    def __init__(self, pointers: IncompletePointers) -> None:
         self._pointers = pointers.complete(self)
 
     @property
-    def line(self) -> int:
+    def line(self) -> Optional[int]:
         return self._pointers.line
 
     @property
-    def uri_line(self):
+    def uri_line(self) -> str:
         line = ""
         if self.line is not None:
             line = f":{self.line}"
         return f"{self._pointers.retrieval_uri}{line}"
 
     @property
-    def index(self):
+    def elem_index(self) -> Optional[IndexKey]:
         return self._pointers.idx
 
     @property
-    def base_uri(self):
+    def base_uri(self) -> JsonPointer:
         return self._pointers.base_uri
 
     @staticmethod
-    def construct(data, incomplete_pointers: IncompletePointers):
+    def construct(data: Any, incomplete_pointers: IncompletePointers) -> Any:
         """This is a factory for new elements inheriting from DocElement, based on the
         data that is passed in.
 
@@ -157,13 +159,13 @@ class DocElement:
 
 class DocContainer(DocElement):
 
-    def __init__(self, pointers: IncompletePointers):
+    def __init__(self, pointers: IncompletePointers) -> None:
         super().__init__(pointers)
 
 
-class DocObject(DocContainer, dict):
+class DocObject(DocContainer, dict):  # type: ignore[type-arg]
 
-    def __init__(self, data: dict, pointers: IncompletePointers):
+    def __init__(self, data: dict, pointers: IncompletePointers) -> None:
         super().__init__(pointers)
 
         new_base_uri = self._pointers.controller.options.get_base_uri(self, data)
@@ -172,7 +174,7 @@ class DocObject(DocContainer, dict):
             self._pointers.controller.add_document(self._pointers.base_uri, self)
 
         for data_key, data_value in data.items():
-            line, _ = data.lc.value(data_key)
+            line, _ = data.lc.value(data_key)  # type: ignore[attr-defined]
             inc_ptrs = IncompletePointers(self._pointers, data_key, line)
             if (
                 data_key == self._pointers.dollar_ref_token
@@ -183,8 +185,8 @@ class DocObject(DocContainer, dict):
             else:
                 self[data_key] = self.construct(data_value, inc_ptrs)
 
-    def resolve_references(self):
-        additional_properties = {}
+    def resolve_references(self) -> None:
+        additional_properties: dict[str, Any] = {}
         remove_reference = False
         for k, v in self.items():
             if isinstance(v, DocReference):
@@ -222,7 +224,7 @@ class DocObject(DocContainer, dict):
             ret = ret.replace(*rep)
         return ret
 
-    def has_node(self, fragment):
+    def has_node(self, fragment: str) -> bool:
         try:
             self.get_node(fragment)
         except PathReferenceResolutionError:
@@ -230,9 +232,9 @@ class DocObject(DocContainer, dict):
         else:
             return True
 
-    def get_node(self, fragment):
+    def get_node(self, fragment: str) -> Any:
         fragment_parts = [p for p in fragment.split("/") if len(p) > 0]
-        node = self
+        node: Any = self
         for part in fragment_parts:
             if part.isnumeric() and isinstance(node, list):
                 node = node[int(part)]
@@ -246,16 +248,16 @@ class DocObject(DocContainer, dict):
         return node
 
 
-class DocArray(DocContainer, list):
+class DocArray(DocContainer, list):  # type: ignore[type-arg]
 
-    def __init__(self, data: list, pointers: IncompletePointers):
+    def __init__(self, data: list, pointers: IncompletePointers) -> None:
         DocContainer.__init__(self, pointers)
         for list_index, data_value in enumerate(data):
-            line, _ = data.lc.data[list_index]
+            line, _ = data.lc.data[list_index]  # type: ignore[attr-defined]
             inc_ptrs = IncompletePointers(self._pointers, list_index, line)
             self.append(self.construct(data_value, inc_ptrs))
 
-    def resolve_references(self):
+    def resolve_references(self) -> None:
         for index, item in enumerate(self):
             if isinstance(item, DocReference):
                 self[index] = item.resolve()
@@ -265,32 +267,38 @@ class DocArray(DocContainer, list):
 
 class DocReference(DocElement):
 
-    def __init__(self, reference: str, pointers: IncompletePointers):
+    def __init__(self, reference: str, pointers: IncompletePointers) -> None:
         super().__init__(pointers)
         self._reference = reference
 
     @property
-    def reference(self):
+    def reference(self) -> str:
         return self._reference
 
-    def resolve(self):
+    def resolve(self) -> Any:
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
+        doc: DocElement
+        node: Any
         try:
             if (
-                js_ptr.uri == self._pointers.schema_root.base_uri
+                self._pointers.schema_root is not None
+                and isinstance(self._pointers.schema_root, DocObject)
+                and js_ptr.uri == self._pointers.schema_root.base_uri
                 and self._pointers.schema_root.has_node(js_ptr.fragment)
             ):
                 doc = self._pointers.schema_root
             else:
                 doc = self._pointers.controller.get_document(js_ptr)
-            node = doc._pointers.schema_root.get_node(js_ptr.fragment)
+            assert self._pointers.schema_root is not None
+            node = doc._pointers.schema_root.get_node(js_ptr.fragment)  # type: ignore[union-attr]
         except CircularDependencyError:
             raise
         except UnableToLoadDocument:
             raise
         except Exception:
+            assert self._pointers.schema_root is not None
             doc = self._pointers.schema_root
-            node = doc._pointers.schema_root.get_node(js_ptr.fragment)
+            node = doc._pointers.schema_root.get_node(js_ptr.fragment)  # type: ignore[union-attr]
         return node
 
     def __repr__(self) -> str:
@@ -299,27 +307,27 @@ class DocReference(DocElement):
 
 class DocValue(DocElement):
 
-    def __init__(self, value, pointers: IncompletePointers):
+    def __init__(self, value: Any, pointers: IncompletePointers) -> None:
         DocElement.__init__(self, pointers)
         self.data = value
-        self.key = None
-        self.key_line = None
+        self.key: Optional[str] = None
+        self.key_line: Optional[int] = None
 
     @property
-    def value(self):
+    def value(self) -> Any:
         return self.data
 
-    def set_key(self, key_name, key_line):
+    def set_key(self, key_name: str, key_line: int) -> None:
         self.key = key_name
         self.key_line = key_line
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if isinstance(self.data, str):
             return f'"{self.data}"'
         return str(self.data)
 
     @staticmethod
-    def factory(value, pointers: IncompletePointers):
+    def factory(value: Any, pointers: IncompletePointers) -> Any:
         if isinstance(value, bool):
             return value
         elif isinstance(value, int):
@@ -335,38 +343,38 @@ class DocValue(DocElement):
 
 class DocInteger(DocValue, int):
 
-    def __new__(cls, value: int, pointers: IncompletePointers):
+    def __new__(cls, value: int, pointers: IncompletePointers) -> DocInteger:
         di = int.__new__(DocInteger, value)
-        di.__init__(value, pointers)
+        di.__init__(value, pointers)  # type: ignore[misc]
         return di
 
-    def __init__(self, value: int, pointers: IncompletePointers):
+    def __init__(self, value: int, pointers: IncompletePointers) -> None:  # type: ignore[override]
         DocValue.__init__(self, value, pointers)
 
 
 class DocFloat(DocValue, float):
 
-    def __new__(cls, value: float, pointers: IncompletePointers):
+    def __new__(cls, value: float, pointers: IncompletePointers) -> DocFloat:
         df = float.__new__(DocFloat, value)
-        df.__init__(value, pointers)
+        df.__init__(value, pointers)  # type: ignore[misc]
         return df
 
-    def __init__(self, value: float, pointers: IncompletePointers):
+    def __init__(self, value: float, pointers: IncompletePointers) -> None:  # type: ignore[override]
         DocValue.__init__(self, value, pointers)
 
 
 class DocString(DocValue, str):
 
-    def __new__(cls, value: str, pointers: IncompletePointers):
+    def __new__(cls, value: str, pointers: IncompletePointers) -> DocString:
         # This is stupid and needs to be fixed.
         # It is here to correctly load a poop emoji found
         # in the minLength.json JSON-Schema test data.
         new_value = json.loads(json.dumps(value))
         ds = str.__new__(DocString, new_value)
-        ds.__init__(new_value, pointers)
+        ds.__init__(new_value, pointers)  # type: ignore[misc]
         return ds
 
-    def __init__(self, value: str, pointers: IncompletePointers):
+    def __init__(self, value: str, pointers: IncompletePointers) -> None:  # type: ignore[override]
         DocValue.__init__(self, value, pointers)
 
 
@@ -375,7 +383,11 @@ class Document:
     assign its inheritance.  The `Document` type can be used in annotations.
     """
 
-    pass
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def get_node(self, fragment: str) -> Any:
+        raise NotImplementedError
 
 
 class ParseController:
@@ -384,26 +396,28 @@ class ParseController:
         self,
         loader: Optional[LoaderBaseClass] = None,
         options: Optional[ParseOptions] = None,
-    ):
-        self.loader = loader
-        if self.loader is None:
-            self.loader = FilesystemLoader()
-        self.options = options
-        if self.options is None:
-            self.options = ParseOptions()
+    ) -> None:
+        if loader is None:
+            self.loader: LoaderBaseClass = FilesystemLoader()
+        else:
+            self.loader = loader
+        if options is None:
+            self.options: ParseOptions = ParseOptions()
+        else:
+            self.options = options
         self.parser = Parser()
 
         self._document_structure_cache: Dict[Uri, Any] = dict()
-        self._document_cache: Dict[Uri, Document] = dict()
+        self._document_cache: Dict[str, Document] = dict()
         self._loading: Set[Uri] = set()
 
-    def add_document(self, uri: Union[JsonPointer, str], doc: DocObject):
+    def add_document(self, uri: Union[JsonPointer, str], doc: Any) -> None:
         if isinstance(uri, str):
             self._document_cache[uri] = doc
         else:
             self._document_cache[repr(uri)] = doc
 
-    def get_document_structure(self, uri: Union[JsonPointer, Uri]):
+    def get_document_structure(self, uri: Union[JsonPointer, Uri]) -> Any:
         if isinstance(uri, JsonPointer):
             uri = uri.uri
         if uri in self._document_structure_cache:
@@ -416,9 +430,11 @@ class ParseController:
         self._document_structure_cache[uri] = structure
         return structure
 
-    def get_document(self, doc_uri: Union[JsonPointer, Uri]):
-        ptr = doc_uri
-        if not isinstance(ptr, JsonPointer):
+    def get_document(self, doc_uri: Union[JsonPointer, Uri]) -> Any:
+        ptr: JsonPointer
+        if isinstance(doc_uri, JsonPointer):
+            ptr = doc_uri
+        else:
             ptr = JsonPointer.from_uri_string(doc_uri)
         uri = ptr.uri
         if ptr.as_string() in self._loading:
@@ -441,11 +457,11 @@ class ParseController:
 
 
 def create_document(
-    uri,
+    uri: Any,
     loader: Optional[LoaderBaseClass] = None,
     options: Optional[ParseOptions] = None,
     controller: Optional[ParseController] = None,
-):
+) -> Any:
 
     if controller is None:
         controller = ParseController(loader, options)
@@ -455,7 +471,7 @@ def create_document(
 
     root_pointers = IncompletePointers(initial_pointers, None, line=0)
 
-    base_class = DocObject
+    base_class: Type[DocElement] = DocObject
     if isinstance(structure, list):
         base_class = DocArray
     elif isinstance(structure, bool):
@@ -478,7 +494,7 @@ def create_document(
                     )
                     return doc_ref.resolve()
                 else:
-                    base_class = DocReference
+                    base_class = DocReference  # type: ignore[assignment]
                     structure = structure[initial_pointers.dollar_ref_token]
             elif (
                 initial_pointers.ref_resolution_mode
@@ -492,9 +508,9 @@ def create_document(
     else:
         raise Exception(f"Does not support structures that are a {type(structure)}")
 
-    class DocumentRoot(base_class, Document):
+    class DocumentRoot(base_class, Document):  # type: ignore[valid-type,misc]
 
-        def __init__(self, structure, pointers: IncompletePointers):
+        def __init__(self, structure: Any, pointers: IncompletePointers) -> None:
             super().__init__(structure, pointers)
 
     doc_root = DocumentRoot(structure, root_pointers)

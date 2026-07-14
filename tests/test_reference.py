@@ -353,9 +353,7 @@ class TestBaseUriChange(unittest.TestCase):
         with self.assertRaises(UnableToLoadDocument) as context:
             # We don't really want to have to load the remote reference, so we'll just check that the
             # exception shows the correct URI to the remote.
-            self.doc["definitions"]["baz"]["definitions"]["bar"][
-                "items"
-            ].resolve()
+            self.doc["definitions"]["baz"]["definitions"]["bar"]["items"].resolve()
             self.assertIn(
                 "http://localhost:1234/baseUriChangeFolderInSubschema/folderInteger.json",
                 str(context.exception),
