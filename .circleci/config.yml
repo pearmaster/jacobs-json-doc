@@ -83,8 +83,7 @@ jobs:
           command: |
             export PATH="$HOME/.local/bin:$PATH"
             uv build
-            uv pip install twine
-            twine upload dist/*
+            uv publish
 workflows:
   build_test_publish:
     jobs:
