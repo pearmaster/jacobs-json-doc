@@ -1,6 +1,9 @@
 from typing import Dict
 
-class DictionaryMergeError(Exception): pass
+
+class DictionaryMergeError(Exception):
+    pass
+
 
 def merge_dicts(to_dict: Dict, from_dict: Dict):
     for k, v in from_dict.items():

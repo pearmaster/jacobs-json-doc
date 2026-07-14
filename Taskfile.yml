@@ -1,0 +1,31 @@
+version: "3"
+
+tasks:
+  format:
+    desc: Format code with Black
+    cmds:
+      - uv run black -t py314 .
+
+  lint:
+    desc: Lint code with Ruff
+    cmds:
+      - uv run ruff check .
+
+  lint-fix:
+    desc: Lint and auto-fix code with Ruff
+    cmds:
+      - uv run ruff check --fix .
+
+  test:
+    desc: Run tests with Pytest
+    cmds:
+      - uv run pytest tests/
+
+  build:
+    desc: Build the package
+    cmds:
+      - uv build
+
+  check:
+    desc: Run format, lint, and test
+    deps: [format, lint, test]

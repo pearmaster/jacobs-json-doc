@@ -1,6 +1,5 @@
 import unittest
 
-import jacobsjsondoc
 from jacobsjsondoc.parser import Parser
 
 JSON_WITH_A_TAB = """
@@ -11,6 +10,7 @@ JSON_WITH_A_TAB = """
     ]
 }
 """
+
 
 class TestParseJson(unittest.TestCase):
 

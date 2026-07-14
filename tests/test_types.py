@@ -16,6 +16,7 @@ JSON_WITH_A_TAB = """
 }
 """
 
+
 class TestParsedTypes(unittest.TestCase):
 
     def setUp(self):
@@ -39,6 +40,7 @@ class TestParsedTypes(unittest.TestCase):
         self.assertIsInstance(self.doc["hi"], str)
         self.assertEqual(self.doc["hi"], "💩")
 
+
 class TestMinLength(unittest.TestCase):
 
     def setUp(self):
@@ -51,5 +53,5 @@ class TestMinLength(unittest.TestCase):
         self.assertEqual(len("💩"), 1)
         self.assertIsInstance(self.doc["data"], str)
         self.assertIsInstance(self.doc["data"], jacobsjsondoc.document.DocString)
-        #self.assertEqual(self.doc[0]["tests"][4]["data"], "💩")
+        # self.assertEqual(self.doc[0]["tests"][4]["data"], "💩")
         self.assertEqual(len(self.doc["data"]), 1)

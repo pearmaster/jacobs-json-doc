@@ -1,7 +1,7 @@
-
 from typing import Optional
 
 from enum import Enum
+
 
 class RefResolutionMode(Enum):
     USE_REFERENCES_OBJECTS = 0
@@ -12,9 +12,11 @@ class RefResolutionMode(Enum):
 class ParseOptions:
 
     def __init__(self):
-        self.ref_resolution_mode:RefResolutionMode = RefResolutionMode.USE_REFERENCES_OBJECTS
-        self.dollar_id_token:str = "$id"
-        self.dollar_ref_token:str = "$ref"
+        self.ref_resolution_mode: RefResolutionMode = (
+            RefResolutionMode.USE_REFERENCES_OBJECTS
+        )
+        self.dollar_id_token: str = "$id"
+        self.dollar_ref_token: str = "$ref"
 
     def get_base_uri(self, parent, node):
         if self.dollar_id_token in node:
@@ -58,7 +60,7 @@ class JsonSchemaParseOptions(ParseOptions):
             parent_node = parent_node._pointers.parent
         return None
 
-    def _is_inside_properties(self, parent, prop_names:list) -> Optional[int]:
+    def _is_inside_properties(self, parent, prop_names: list) -> Optional[int]:
         parent_node = parent
         iterations = 0
         while parent_node is not None:

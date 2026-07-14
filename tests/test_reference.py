@@ -1,7 +1,14 @@
 import unittest
-from .context import jacobsjsondoc
 from jacobsjsondoc.reference import JsonPointer
-from jacobsjsondoc.document import create_document, DocReference, DocObject, Document, UnableToLoadDocument, PathReferenceResolutionError, DocString
+from jacobsjsondoc.document import (
+    create_document,
+    DocReference,
+    DocObject,
+    Document,
+    UnableToLoadDocument,
+    PathReferenceResolutionError,
+    DocString,
+)
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
@@ -16,15 +23,16 @@ SAMPLE_DOCUMENT = {
         "bar": {
             "$id": "#barprop",
             "type": "integer",
-        }
+        },
     },
     "objects": {
         "fooProperty": {
             "$id": "#fooprop",
             "type": "string",
         }
-    }
+    },
 }
+
 
 class TestJsonReferenceObject(unittest.TestCase):
 
@@ -53,6 +61,7 @@ class TestJsonReferenceObject(unittest.TestCase):
         self.assertEqual(ref_repr, "http://example.com/other/schema.json#func")
         ref2 = JsonPointer.from_uri_string(ref_repr)
         self.assertEqual(ref, ref2)
+
 
 class TestNotAReference(unittest.TestCase):
 
@@ -93,6 +102,7 @@ class TestNotAReference(unittest.TestCase):
         self.assertIsInstance(self.doc["J"], DocReference)
         self.assertEqual(self.doc["J"].resolve(), "H")
 
+
 class TestIdTagging(unittest.TestCase):
 
     def setUp(self):
@@ -100,21 +110,30 @@ class TestIdTagging(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate(self.data["$id"], json.dumps(self.data))
         self.doc = create_document(uri=self.data["$id"], loader=ppl)
-    
+
     def test_root_has_correct_id(self):
         self.assertEqual(self.doc.base_uri.uri, self.data["$id"])
 
     def test_bar_has_correct_id(self):
-        self.assertEqual(self.doc['properties']['bar'].base_uri, "http://example.com/schema.json#barprop")
+        self.assertEqual(
+            self.doc["properties"]["bar"].base_uri,
+            "http://example.com/schema.json#barprop",
+        )
 
     def test_fooproperty_has_correct_id(self):
-        self.assertEqual(self.doc['objects']['fooProperty'].base_uri, "http://example.com/schema.json#fooprop")
+        self.assertEqual(
+            self.doc["objects"]["fooProperty"].base_uri,
+            "http://example.com/schema.json#fooprop",
+        )
 
     def test_dictionary_has_barprop(self):
-        barprop = self.doc._pointers.controller._document_cache["http://example.com/schema.json#barprop"]
-        self.assertEqual(barprop['$id'], "#barprop")
-        self.assertEqual(barprop['type'], "integer")
-    
+        barprop = self.doc._pointers.controller._document_cache[
+            "http://example.com/schema.json#barprop"
+        ]
+        self.assertEqual(barprop["$id"], "#barprop")
+        self.assertEqual(barprop["type"], "integer")
+
+
 DOUBLE_REFERENCE_DOC = """
 {
     "definitions": {
@@ -141,6 +160,7 @@ DOUBLE_REFERENCE_DOC = """
 }
 """
 
+
 class TestDoubleRef(unittest.TestCase):
 
     def setUp(self):
@@ -150,10 +170,10 @@ class TestDoubleRef(unittest.TestCase):
         self.doc = create_document(uri="1", loader=ppl)
 
     def test_is_a_reference(self):
-        self.assertIsInstance(self.doc['items'][0], DocReference)
-        resolved = self.doc['items'][0].resolve()
-        self.assertEqual(resolved['type'], "array")
-        self.assertIsInstance(resolved['items'], list)
+        self.assertIsInstance(self.doc["items"][0], DocReference)
+        resolved = self.doc["items"][0].resolve()
+        self.assertEqual(resolved["type"], "array")
+        self.assertIsInstance(resolved["items"], list)
 
 
 ROOT_POINTER_REF = """
@@ -167,6 +187,7 @@ ROOT_POINTER_REF = """
 }
 """
 
+
 class TestRootPointerRef(unittest.TestCase):
 
     def setUp(self):
@@ -179,6 +200,7 @@ class TestRootPointerRef(unittest.TestCase):
         self.assertIsInstance(self.doc, Document)
         self.assertIn("schema", self.doc)
         self.assertIsInstance(self.doc["schema"]["properties"]["foo"], DocReference)
+
 
 class TestIdTrouble(unittest.TestCase):
 
@@ -293,7 +315,9 @@ class TestBaseUriChange(unittest.TestCase):
         self.assertIsInstance(self.doc["type"], str)
         self.assertIsInstance(self.doc["properties"], DocObject)
         self.assertIsInstance(self.doc["properties"]["list"], DocReference)
-        self.assertIsInstance(self.doc["definitions"]["baz"]["definitions"]["bar"]["items"], DocReference)
+        self.assertIsInstance(
+            self.doc["definitions"]["baz"]["definitions"]["bar"]["items"], DocReference
+        )
 
         self.assertIsInstance(self.doc2["items"]["items"], DocReference)
 
@@ -301,15 +325,25 @@ class TestBaseUriChange(unittest.TestCase):
         self.assertIsInstance(self.doc3["allOf"][0], DocReference)
 
     def test_dollar_ids1(self):
-        self.assertEqual(self.doc.base_uri, "http://localhost:1234/scope_change_defs2.json")
-        self.assertEqual(self.doc["definitions"]["baz"]["definitions"].base_uri, "http://localhost:1234/baseUriChangeFolderInSubschema/")
+        self.assertEqual(
+            self.doc.base_uri, "http://localhost:1234/scope_change_defs2.json"
+        )
+        self.assertEqual(
+            self.doc["definitions"]["baz"]["definitions"].base_uri,
+            "http://localhost:1234/baseUriChangeFolderInSubschema/",
+        )
 
     def test_dollar_ids2(self):
         self.assertEqual(self.doc2.base_uri, "http://localhost:1234/")
-        self.assertEqual(self.doc2["items"]["items"].base_uri, "http://localhost:1234/baseUriChange/")
+        self.assertEqual(
+            self.doc2["items"]["items"].base_uri, "http://localhost:1234/baseUriChange/"
+        )
 
     def test_dollar_ids3(self):
-        self.assertEqual(self.doc3["properties"]["foo"].base_uri, "http://example.com/schema-relative-uri-defs2.json")
+        self.assertEqual(
+            self.doc3["properties"]["foo"].base_uri,
+            "http://example.com/schema-relative-uri-defs2.json",
+        )
 
     def test_list_reference_resolution(self):
         dereffed = self.doc["properties"]["list"].resolve()
@@ -319,19 +353,28 @@ class TestBaseUriChange(unittest.TestCase):
         with self.assertRaises(UnableToLoadDocument) as context:
             # We don't really want to have to load the remote reference, so we'll just check that the
             # exception shows the correct URI to the remote.
-            dereffed = self.doc["definitions"]["baz"]["definitions"]["bar"]["items"].resolve()
-            self.assertIn("http://localhost:1234/baseUriChangeFolderInSubschema/folderInteger.json", str(context.exception))
+            dereffed = self.doc["definitions"]["baz"]["definitions"]["bar"][
+                "items"
+            ].resolve()
+            self.assertIn(
+                "http://localhost:1234/baseUriChangeFolderInSubschema/folderInteger.json",
+                str(context.exception),
+            )
 
     def test_doc2_items_resolution(self):
         with self.assertRaises(UnableToLoadDocument) as context:
             # We don't really want to have to load the remote reference, so we'll just check that the
             # exception shows the correct URI to the remote.
             dereffed = self.doc2["items"]["items"].resolve()
-            self.assertIn("http://localhost:1234/baseUriChange/folderInteger.json", str(context.exception))
+            self.assertIn(
+                "http://localhost:1234/baseUriChange/folderInteger.json",
+                str(context.exception),
+            )
 
     def test_doc3_resolution(self):
         self.assertIsInstance(self.doc3["properties"]["foo"]["allOf"][0], DocReference)
         self.assertIsInstance(self.doc3["allOf"][0], DocReference)
+
 
 class TestInvalid(unittest.TestCase):
 
@@ -345,11 +388,12 @@ class TestInvalid(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("1", self.data)
         self.doc = create_document(uri="1", loader=ppl)
-    
+
     def test_local_ref_goes_nowhere(self):
-        self.assertIsInstance(self.doc['foo'], DocReference)
+        self.assertIsInstance(self.doc["foo"], DocReference)
         with self.assertRaises(PathReferenceResolutionError) as context:
-            self.doc['foo'].resolve()
+            self.doc["foo"].resolve()
+
 
 class TestNotCircularDependency(unittest.TestCase):
 
@@ -378,15 +422,16 @@ class TestNotCircularDependency(unittest.TestCase):
         ppl = PrepopulatedLoader()
         ppl.prepopulate("1", self.data)
         self.doc = create_document(uri="1", loader=ppl)
-    
+
     def test_has_reference(self):
-        self.assertIsInstance(self.doc['allOf'][0], DocReference)
+        self.assertIsInstance(self.doc["allOf"][0], DocReference)
 
     def test_reference_isnt_circular_dependency(self):
-        resolved_doc = self.doc['allOf'][0].resolve()
+        resolved_doc = self.doc["allOf"][0].resolve()
         self.assertIsInstance(resolved_doc, DocObject)
-        self.assertIn('type', resolved_doc)
-        self.assertEqual(resolved_doc['type'], "number")
+        self.assertIn("type", resolved_doc)
+        self.assertEqual(resolved_doc["type"], "number")
+
 
 class TestNotCircularDependency2(unittest.TestCase):
 
@@ -415,7 +460,8 @@ class TestNotCircularDependency2(unittest.TestCase):
         self.doc = create_document(uri="1", loader=ppl, options=opts)
 
     def test_reference_must_have_resolved(self):
-        self.assertNotIn('$ref', self.doc)
+        self.assertNotIn("$ref", self.doc)
+
 
 class TestRefPropertyWithOthers(unittest.TestCase):
 
@@ -433,24 +479,25 @@ class TestRefPropertyWithOthers(unittest.TestCase):
         opts = ParseOptions()
         opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
         self.doc = create_document(uri="1", loader=ppl, options=opts)
-    
+
     def test_is_object(self):
         self.assertIsInstance(self.doc, DocObject)
 
     def test_is_for_integer(self):
-        self.assertIsInstance(self.doc['type'], DocString)
-        self.assertEqual(self.doc['type'], "integer")
+        self.assertIsInstance(self.doc["type"], DocString)
+        self.assertEqual(self.doc["type"], "integer")
 
     def test_ref_resolved(self):
         self.assertNotIn("$ref", self.doc)
 
     def test_has_minimum(self):
-        self.assertIsInstance(self.doc['minimum'], int)
-        self.assertEqual(self.doc['minimum'], 0)
-    
+        self.assertIsInstance(self.doc["minimum"], int)
+        self.assertEqual(self.doc["minimum"], 0)
+
     def test_has_maximum(self):
-        self.assertIsInstance(self.doc['maximum'], int)
-        self.assertEqual(self.doc['maximum'], 0)
+        self.assertIsInstance(self.doc["maximum"], int)
+        self.assertEqual(self.doc["maximum"], 0)
+
 
 class TestRefPropertyMergeWithOthers(unittest.TestCase):
 
@@ -472,20 +519,23 @@ class TestRefPropertyMergeWithOthers(unittest.TestCase):
         opts = ParseOptions()
         opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
         self.doc = create_document(uri="1", loader=ppl, options=opts)
-    
+
     def test_is_object(self):
         self.assertIsInstance(self.doc, DocObject)
 
     def test_is_for_object(self):
-        self.assertIsInstance(self.doc['type'], DocString)
-        self.assertEqual(self.doc['type'], "object")
-        self.assertIsInstance(self.doc['properties'], DocObject)
+        self.assertIsInstance(self.doc["type"], DocString)
+        self.assertEqual(self.doc["type"], "object")
+        self.assertIsInstance(self.doc["properties"], DocObject)
 
     def test_ref_resolved(self):
         self.assertNotIn("$ref", self.doc)
 
     def test_properties(self):
-        self.assertDictEqual(self.doc['properties'], {
-            "foo": {"type": "integer"},
-            "bar": {"type": "string"},
-        })
+        self.assertDictEqual(
+            self.doc["properties"],
+            {
+                "foo": {"type": "integer"},
+                "bar": {"type": "string"},
+            },
+        )

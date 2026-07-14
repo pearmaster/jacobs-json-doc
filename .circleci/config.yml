@@ -2,51 +2,50 @@ version: 2.1
 orbs:
   python: circleci/python@1.4.0
 jobs:
-  build_test_3_7:
+  build_test_3_12:
     executor:
       name: python/default
-      tag: "3.7"
+      tag: "3.12"
     steps:
-      - checkout  # checkout source code to working directory
-      - python/install-packages:
-          pkg-manager: pip
-      - python/install-packages:
-          args: unittest-xml-reporting
-          pkg-manager: pip
+      - checkout
+      - run:
+          name: Install uv
+          command: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run:
+          name: Install dependencies
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            uv sync
+      - run:
+          name: Install test dependencies
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            uv pip install unittest-xml-reporting
       - run:
           command: |
             mkdir -p /tmp/testresults
             python -m xmlrunner discover -o /tmp/testresults
       - store_test_results:
           path: /tmp/testresults
-  build_test_3_8:
+  build_test_3_13:
     executor:
       name: python/default
-      tag: "3.8"
+      tag: "3.13"
     steps:
-      - checkout  # checkout source code to working directory
-      - python/install-packages:
-          pkg-manager: pip
-      - python/install-packages:
-          args: unittest-xml-reporting
-          pkg-manager: pip
+      - checkout
       - run:
+          name: Install uv
+          command: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run:
+          name: Install dependencies
           command: |
-            mkdir -p /tmp/testresults
-            python -m xmlrunner discover -o /tmp/testresults
-      - store_test_results:
-          path: /tmp/testresults
-  build_test_3_9:
-    executor:
-      name: python/default
-      tag: "3.9"
-    steps:
-      - checkout  # checkout source code to working directory
-      - python/install-packages:
-          pkg-manager: pip
-      - python/install-packages:
-          args: coveralls coverage unittest-xml-reporting
-          pkg-manager: pip
+            export PATH="$HOME/.local/bin:$PATH"
+            uv sync
+      - run:
+          name: Install test dependencies
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            uv pip install unittest-xml-reporting coveralls coverage
       - run:
           command: |
             mkdir -p /tmp/testresults
@@ -56,63 +55,71 @@ jobs:
           path: /tmp/testresults
   test_pypi_publish:
     docker:
-      - image: circleci/python:3
+      - image: cimg/python:3.12
     steps:
-      - checkout  # checkout source code to working directory
+      - checkout
       - run:
-          command: |  # create whl, install twine and publish to Test PyPI
-            python setup.py sdist bdist_wheel
-            sudo pip install pipenv
-            pipenv install twine
-            pipenv run twine upload --repository testpypi dist/*
+          name: Install uv
+          command: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run:
+          name: Build and publish to Test PyPI
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            uv build
+            uv pip install twine
+            twine upload --repository testpypi dist/*
   pypi_publish:
     docker:
-      - image: circleci/python:3
+      - image: cimg/python:3.12
     steps:
-      - checkout  # checkout source code to working directory
+      - checkout
       - run:
-          command: |  # create whl, install twine and publish to PyPI
-            python setup.py sdist bdist_wheel
-            sudo pip install pipenv
-            pipenv install twine
-            pipenv run twine upload dist/*
+          name: Install uv
+          command: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run:
+          name: Build and publish to PyPI
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            uv build
+            uv pip install twine
+            twine upload dist/*
   safety_check:
     executor:
       name: python/default
-      tag: "3.9"
+      tag: "3.12"
     steps:
-      - checkout  # checkout source code to working directory
-      - python/install-packages:
-          pkg-manager: pip
-      - python/install-packages:
-          args: safety
-          pkg-manager: pip
+      - checkout
       - run:
+          name: Install uv
+          command: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run:
+          name: Install dependencies
           command: |
-            safety check -r requirements.txt
+            export PATH="$HOME/.local/bin:$PATH"
+            uv sync
+      - run:
+          name: Install safety
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            uv pip install safety
+      - run:
+          name: Run safety check
+          command: |
+            export PATH="$HOME/.local/bin:$PATH"
+            uv export --no-hashes -f requirements.txt > /tmp/requirements.txt
+            safety check -r /tmp/requirements.txt
 workflows:
   build_test_publish:
     jobs:
-      - build_test_3_7
-      - build_test_3_8
-      - build_test_3_9
+      - build_test_3_12
+      - build_test_3_13
       - safety_check
-      - python/test:
-          version: "3.10"
-          pkg-manager: pip
-          name: build_test_3_10
-      - python/test:
-          version: "3.11"
-          pkg-manager: pip
-          name: build_test_3_11
       - test_pypi_publish:
           context:
             - python_twine_test
           requires:
-            - build_test_3_7
-            - build_test_3_8
-            - build_test_3_9
-            - build_test_3_10
+            - build_test_3_12
+            - build_test_3_13
             - safety_check
           filters:
             branches:
@@ -122,10 +129,8 @@ workflows:
           context:
             - python_twine
           requires:
-            - build_test_3_7
-            - build_test_3_8
-            - build_test_3_9
-            - build_test_3_10
+            - build_test_3_12
+            - build_test_3_13
             - safety_check
           filters:
             branches:
@@ -141,4 +146,3 @@ workflows:
             branches:
               only:
                 - master
-      

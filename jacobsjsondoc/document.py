@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import json
 from typing import Optional, Union, Set, Dict, Any
@@ -9,12 +8,13 @@ from .reference import JsonPointer
 from .options import ParseOptions, RefResolutionMode
 from .util import merge_dicts
 
-
 IndexKey = Union[str, int]
 Uri = str
 
+
 class ReferenceResolutionError(Exception):
     pass
+
 
 class PathReferenceResolutionError(ReferenceResolutionError):
 
@@ -24,11 +24,14 @@ class PathReferenceResolutionError(ReferenceResolutionError):
 
 class CircularDependencyError(ReferenceResolutionError):
     def __init__(self, uri):
-        super().__init__(f"Circular dependency detected when trying to load '{uri}' a second time")
+        super().__init__(
+            f"Circular dependency detected when trying to load '{uri}' a second time"
+        )
 
 
 class UnableToLoadDocument(Exception):
     pass
+
 
 class IncompletePointers:
 
@@ -50,9 +53,15 @@ class IncompletePointers:
     def __repr__(self) -> str:
         return "<IncompletePointers {}>".format(self._parents_pointer)
 
+
 class ElementPointers:
 
-    def __init__(self, retrieval_uri: Union[JsonPointer, str], node: DocElement, controller: ParseController):
+    def __init__(
+        self,
+        retrieval_uri: Union[JsonPointer, str],
+        node: DocElement,
+        controller: ParseController,
+    ):
         if isinstance(retrieval_uri, JsonPointer):
             self.retrieval_uri = retrieval_uri
         else:
@@ -96,6 +105,7 @@ class ElementPointers:
     def __repr__(self) -> str:
         return "<ElementPointers {}>".format(self.retrieval_uri)
 
+
 class DocElement:
 
     def __init__(self, pointers: IncompletePointers):
@@ -122,14 +132,16 @@ class DocElement:
 
     @staticmethod
     def construct(data, incomplete_pointers: IncompletePointers):
-        """ This is a factory for new elements inheriting from DocElement, based on the
+        """This is a factory for new elements inheriting from DocElement, based on the
         data that is passed in.
 
         @param pointers that should be assigned to the created object.
         """
 
         if isinstance(data, dict):
-            ref = incomplete_pointers._parents_pointer.controller.options.get_reference(incomplete_pointers._parents_pointer.me, incomplete_pointers._idx, data)
+            ref = incomplete_pointers._parents_pointer.controller.options.get_reference(
+                incomplete_pointers._parents_pointer.me, incomplete_pointers._idx, data
+            )
             if ref is not None:
                 doc_ref = DocReference(ref, incomplete_pointers)
                 return doc_ref
@@ -138,7 +150,7 @@ class DocElement:
         elif isinstance(data, list):
             doc_arr = DocArray(data, incomplete_pointers)
             return doc_arr
-        else: # Values
+        else:  # Values
             doc_val = DocValue.factory(data, incomplete_pointers)
             return doc_val
 
@@ -162,7 +174,11 @@ class DocObject(DocContainer, dict):
         for data_key, data_value in data.items():
             line, _ = data.lc.value(data_key)
             inc_ptrs = IncompletePointers(self._pointers, data_key, line)
-            if data_key == self._pointers.dollar_ref_token and self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+            if (
+                data_key == self._pointers.dollar_ref_token
+                and self._pointers.ref_resolution_mode
+                == RefResolutionMode.RESOLVE_REF_PROPERTIES
+            ):
                 self[data_key] = DocReference(data_value, inc_ptrs)
             else:
                 self[data_key] = self.construct(data_value, inc_ptrs)
@@ -174,9 +190,15 @@ class DocObject(DocContainer, dict):
             if isinstance(v, DocReference):
                 while isinstance(v, DocReference):
                     v = v.resolve()
-                if k == self._pointers.dollar_ref_token and self._pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+                if (
+                    k == self._pointers.dollar_ref_token
+                    and self._pointers.ref_resolution_mode
+                    == RefResolutionMode.RESOLVE_REF_PROPERTIES
+                ):
                     if not isinstance(v, DocObject):
-                        raise ReferenceResolutionError("$ref property didn't resolve to an object")
+                        raise ReferenceResolutionError(
+                            "$ref property didn't resolve to an object"
+                        )
                     merge_dicts(additional_properties, v)
                     remove_reference = True
                 else:
@@ -188,7 +210,7 @@ class DocObject(DocContainer, dict):
             del self[self._pointers.dollar_ref_token]
 
     @staticmethod
-    def _replace_ref_escapes(ref_part:str) -> str:
+    def _replace_ref_escapes(ref_part: str) -> str:
         replacements = [
             ("~0", "~"),
             ("~1", "/"),
@@ -209,7 +231,7 @@ class DocObject(DocContainer, dict):
             return True
 
     def get_node(self, fragment):
-        fragment_parts = [ p for p in fragment.split('/') if len(p) > 0 ]
+        fragment_parts = [p for p in fragment.split("/") if len(p) > 0]
         node = self
         for part in fragment_parts:
             if part.isnumeric() and isinstance(node, list):
@@ -222,6 +244,7 @@ class DocObject(DocContainer, dict):
             except TypeError:
                 raise PathReferenceResolutionError(self, fragment)
         return node
+
 
 class DocArray(DocContainer, list):
 
@@ -239,6 +262,7 @@ class DocArray(DocContainer, list):
             elif isinstance(item, DocObject) or isinstance(item, DocArray):
                 item.resolve_references()
 
+
 class DocReference(DocElement):
 
     def __init__(self, reference: str, pointers: IncompletePointers):
@@ -252,7 +276,10 @@ class DocReference(DocElement):
     def resolve(self):
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
         try:
-            if js_ptr.uri == self._pointers.schema_root.base_uri and self._pointers.schema_root.has_node(js_ptr.fragment):
+            if (
+                js_ptr.uri == self._pointers.schema_root.base_uri
+                and self._pointers.schema_root.has_node(js_ptr.fragment)
+            ):
                 doc = self._pointers.schema_root
             else:
                 doc = self._pointers.controller.get_document(js_ptr)
@@ -268,6 +295,7 @@ class DocReference(DocElement):
 
     def __repr__(self) -> str:
         return f"<DocReference {self._reference}>"
+
 
 class DocValue(DocElement):
 
@@ -303,6 +331,7 @@ class DocValue(DocElement):
         elif value is None:
             return None
         return DocValue(value, pointers)
+
 
 class DocInteger(DocValue, int):
 
@@ -340,17 +369,22 @@ class DocString(DocValue, str):
     def __init__(self, value: str, pointers: IncompletePointers):
         DocValue.__init__(self, value, pointers)
 
+
 class Document:
-    """ This is a base class for DocumentRoot, which is not directly accessible since we dynamically
+    """This is a base class for DocumentRoot, which is not directly accessible since we dynamically
     assign its inheritance.  The `Document` type can be used in annotations.
     """
-    pass
 
+    pass
 
 
 class ParseController:
 
-    def __init__(self, loader: Optional[LoaderBaseClass]=None, options: Optional[ParseOptions]=None):
+    def __init__(
+        self,
+        loader: Optional[LoaderBaseClass] = None,
+        options: Optional[ParseOptions] = None,
+    ):
         self.loader = loader
         if self.loader is None:
             self.loader = FilesystemLoader()
@@ -406,14 +440,19 @@ class ParseController:
         return doc
 
 
-def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Optional[ParseOptions]=None, controller: Optional[ParseController]=None):
+def create_document(
+    uri,
+    loader: Optional[LoaderBaseClass] = None,
+    options: Optional[ParseOptions] = None,
+    controller: Optional[ParseController] = None,
+):
 
     if controller is None:
         controller = ParseController(loader, options)
     structure = controller.get_document_structure(uri)
 
     initial_pointers = ElementPointers(uri, None, controller)
-    
+
     root_pointers = IncompletePointers(initial_pointers, None, line=0)
 
     base_class = DocObject
@@ -430,16 +469,26 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
     elif isinstance(structure, dict):
         if initial_pointers.dollar_ref_token in structure:
             if len(structure) == 1:
-                if initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REFERENCES:
-                    doc_ref = DocReference(structure[initial_pointers.dollar_ref_token], root_pointers)
+                if (
+                    initial_pointers.ref_resolution_mode
+                    == RefResolutionMode.RESOLVE_REFERENCES
+                ):
+                    doc_ref = DocReference(
+                        structure[initial_pointers.dollar_ref_token], root_pointers
+                    )
                     return doc_ref.resolve()
                 else:
                     base_class = DocReference
                     structure = structure[initial_pointers.dollar_ref_token]
-            elif initial_pointers.ref_resolution_mode == RefResolutionMode.RESOLVE_REF_PROPERTIES:
+            elif (
+                initial_pointers.ref_resolution_mode
+                == RefResolutionMode.RESOLVE_REF_PROPERTIES
+            ):
                 pass
             else:
-                raise Exception(f"Ref resolution mode cannot handle structure with '{initial_pointers.dollar_ref_token}' and other properties")
+                raise Exception(
+                    f"Ref resolution mode cannot handle structure with '{initial_pointers.dollar_ref_token}' and other properties"
+                )
     else:
         raise Exception(f"Does not support structures that are a {type(structure)}")
 
@@ -449,8 +498,10 @@ def create_document(uri, loader: Optional[LoaderBaseClass]=None, options: Option
             super().__init__(structure, pointers)
 
     doc_root = DocumentRoot(structure, root_pointers)
-    if controller.options.ref_resolution_mode in [RefResolutionMode.RESOLVE_REFERENCES, RefResolutionMode.RESOLVE_REF_PROPERTIES] and hasattr(doc_root, "resolve_references"):
+    if controller.options.ref_resolution_mode in [
+        RefResolutionMode.RESOLVE_REFERENCES,
+        RefResolutionMode.RESOLVE_REF_PROPERTIES,
+    ] and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
-    
-    return doc_root
 
+    return doc_root

@@ -9,6 +9,7 @@ SUPER_SIMPLE_JSON = """
 }
 """
 
+
 class TestQuickParse(unittest.TestCase):
 
     def test_quick_parse_json(self):

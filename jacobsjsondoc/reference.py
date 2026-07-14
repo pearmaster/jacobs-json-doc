@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from urllib.parse import urlparse
-from collections import UserDict
 from typing import Union
+
 
 class JsonPointer:
 
@@ -11,15 +11,15 @@ class JsonPointer:
         self.netloc = netloc
         self.path = path
         self.fragment = fragment
-    
+
     @classmethod
-    def from_uri_string(cls, uri_string:str) -> JsonPointer:
+    def from_uri_string(cls, uri_string: str) -> JsonPointer:
         result = urlparse(uri_string)
         return cls(result.scheme, result.netloc, result.path, result.fragment)
 
     @classmethod
     def empty(cls) -> JsonPointer:
-        return cls('', '', '', '')
+        return cls("", "", "", "")
 
     @property
     def uri(self) -> str:
@@ -60,8 +60,8 @@ class JsonPointer:
         if new_ref.fragment:
             self.fragment = new_ref.fragment
         return self
-    
-    def __eq__(self, other:Union[JsonPointer,str]):
+
+    def __eq__(self, other: Union[JsonPointer, str]):
         alt = other
         if isinstance(other, str):
             alt = self.from_uri_string(other)
