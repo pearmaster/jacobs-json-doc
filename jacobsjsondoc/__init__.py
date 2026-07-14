@@ -1,5 +1,5 @@
 from .document import create_document
-from .loader import PrepopulatedLoader
+from .fetcher import PrepopulatedFetcher
 from .options import ParseOptions
 from importlib.metadata import version, PackageNotFoundError
 
@@ -10,10 +10,10 @@ except PackageNotFoundError:
 
 
 def parse(text_data):
-    ppl = PrepopulatedLoader()
+    ppl = PrepopulatedFetcher()
     ppl.prepopulate(None, text_data)
-    doc = create_document(uri=None, loader=ppl)
+    doc = create_document(uri=None, fetcher=ppl)
     return doc
 
 
-__all__ = ["ParseOptions", "PrepopulatedLoader"]
+__all__ = ["ParseOptions", "PrepopulatedFetcher"]

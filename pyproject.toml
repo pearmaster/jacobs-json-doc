@@ -16,7 +16,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "ruamel.yaml>=0.17.17",
+    "ruamel.yaml>=0.19.1",
 ]
 
 [dependency-groups]

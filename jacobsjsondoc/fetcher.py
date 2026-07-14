@@ -1,26 +1,26 @@
 from abc import ABC, abstractmethod
 
 
-class LoaderBaseClass(ABC):
+class FetcherBaseClass(ABC):
 
     def __init__(self):
         pass
 
     @abstractmethod
-    def load(self, uri) -> str:
+    def fetch(self, uri) -> str:
         pass
 
 
-class FilesystemLoader(LoaderBaseClass):
+class FilesystemFetcher(FetcherBaseClass):
 
     def __init__(self):
         super().__init__()
 
-    def load(self, uri: str) -> str:
+    def fetch(self, uri: str) -> str:
         return open(uri).read()
 
 
-class PrepopulatedLoader(LoaderBaseClass):
+class PrepopulatedFetcher(FetcherBaseClass):
 
     def __init__(self):
         super().__init__()
@@ -29,5 +29,5 @@ class PrepopulatedLoader(LoaderBaseClass):
     def prepopulate(self, uri, source):
         self._documents[uri] = source
 
-    def load(self, uri: str) -> str:
+    def fetch(self, uri: str) -> str:
         return self._documents[uri]

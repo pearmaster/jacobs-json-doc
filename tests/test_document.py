@@ -1,5 +1,5 @@
 import unittest
-from jacobsjsondoc.loader import PrepopulatedLoader
+from jacobsjsondoc.fetcher import PrepopulatedFetcher
 from jacobsjsondoc.document import (
     create_document,
     DocReference,
@@ -70,9 +70,9 @@ myarray:
 class TestDocument(unittest.TestCase):
 
     def test_lines(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("Simple", SIMPLE_YAML)
-        doc = create_document(uri="Simple", loader=ppl)
+        doc = create_document(uri="Simple", fetcher=ppl)
 
         self.assertEqual(doc["jacob"].line, 2)
         self.assertEqual(doc["jacob"]["brunson"].line, 3)
@@ -80,52 +80,52 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(doc["jacob"]["brunson"][0].line, 3)
 
     def test_indexes(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("Simple", SIMPLE_YAML)
-        doc = create_document(uri="Simple", loader=ppl)
+        doc = create_document(uri="Simple", fetcher=ppl)
 
         self.assertEqual(doc["jacob"].elem_index, "jacob")
         self.assertEqual(doc["jacob"]["brunson"].elem_index, "brunson")
         self.assertEqual(doc["jacob"]["brunson"][0].elem_index, 0)
 
     def test_array_ref_resolution(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("Simple", YAML_WITH_ARRAY_OF_REFERENCES)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
-        doc = create_document(uri="Simple", loader=ppl, options=options)
+        doc = create_document(uri="Simple", fetcher=ppl, options=options)
         self.assertEqual(doc["myarray"][0], 1)
         self.assertEqual(doc["myarray"][1], 1.1)
         self.assertEqual(doc["myarray"][2], "hi")
 
     def test_local_ref_use_reference_objects(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("yaml_with_ref", YAML_WITH_REF)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
-        doc = create_document(uri="yaml_with_ref", loader=ppl, options=options)
+        doc = create_document(uri="yaml_with_ref", fetcher=ppl, options=options)
         self.assertIsInstance(doc["house"]["local"], DocReference)
         node = doc["house"]["local"].resolve()
         self.assertIsInstance(node, DocValue)
         self.assertEqual(node.value, "this is the value of the var")
 
     def test_local_ref_resolve_references(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
-        doc = create_document(uri="local", loader=ppl, options=options)
+        doc = create_document(uri="local", fetcher=ppl, options=options)
         self.assertIsInstance(doc["house"]["local"], DocValue)
         self.assertEqual(doc["house"]["local"].value, "this is the value of the var")
 
     def test_remote_ref_use_reference_objects(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
-        doc = create_document(uri="local", loader=ppl, options=options)
+        doc = create_document(uri="local", fetcher=ppl, options=options)
         self.assertIsInstance(doc["house"]["remote"], DocReference)
         node = doc["house"]["remote"].resolve()
         self.assertIsInstance(node, DocValue)
@@ -133,23 +133,23 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(node.line, 11)
 
     def test_remote_ref_resolve_references(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("local", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
-        doc = create_document(uri="local", loader=ppl, options=options)
+        doc = create_document(uri="local", fetcher=ppl, options=options)
         self.assertIsInstance(doc["house"]["remote"], DocValue)
         self.assertEqual(doc["house"]["remote"].value, "this is a foo string")
 
     def test_3_layer_resolve_references(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("middle", YAML_WITH_REF)
         ppl.prepopulate("remote", SIMPLE_YAML)
         ppl.prepopulate("local", ANOTHER_YAML_WITH_REF)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
-        doc = create_document(uri="local", loader=ppl, options=options)
+        doc = create_document(uri="local", fetcher=ppl, options=options)
         self.assertIsInstance(doc["colorado"]["springs"], DocObject)
         self.assertIsInstance(doc["colorado"]["springs"]["var"], DocValue)
         self.assertEqual(
@@ -173,21 +173,21 @@ class TestDocument(unittest.TestCase):
             bar:
                 $ref: "one#/outer"
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("one", yaml1)
         ppl.prepopulate("two", yaml2)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
         with self.assertRaises(CircularDependencyError):
-            create_document(uri="one", loader=ppl, options=options)
+            create_document(uri="one", fetcher=ppl, options=options)
 
 
 class TestDocumentTypes(unittest.TestCase):
 
     def setUp(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate(None, YAML_TYPES)
-        self.doc = create_document(uri=None, loader=ppl)
+        self.doc = create_document(uri=None, fetcher=ppl)
 
     def test_userdict(self):
         self.assertIsInstance(self.doc["myobject"], dict)
@@ -221,9 +221,9 @@ class TestDocumentTypes(unittest.TestCase):
 class TestDocumentSimpleTypes(unittest.TestCase):
 
     def test_integer(self):
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate(None, SIMPLE_WITH_INTEGER)
-        self.doc = create_document(uri=None, loader=ppl)
+        self.doc = create_document(uri=None, fetcher=ppl)
         self.assertEqual(self.doc["thevalue"], 42)
         self.assertIsInstance(self.doc["thevalue"], int)
         self.assertEqual(self.doc["thevalue"].line, 1)
@@ -240,12 +240,12 @@ class TestDocumentReference(unittest.TestCase):
         remote = """
         { "type": "integer" }
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("local", doc_text)
         ppl.prepopulate("http://example.org/schema", remote)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
-        self.doc = create_document(uri="local", loader=ppl, options=options)
+        self.doc = create_document(uri="local", fetcher=ppl, options=options)
 
     def test_loaded_reference(self):
         self.assertIsInstance(self.doc, dict)
@@ -260,9 +260,9 @@ class TestDocumentBooleanRoot(unittest.TestCase):
 
     def setUp(self):
         doc_text = "true"
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("true", doc_text)
-        self.doc = create_document(uri="true", loader=ppl)
+        self.doc = create_document(uri="true", fetcher=ppl)
 
     def test_loads_boolean_root(self):
         self.assertTrue(self.doc)

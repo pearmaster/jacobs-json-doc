@@ -9,7 +9,7 @@ from jacobsjsondoc.document import (
     PathReferenceResolutionError,
     DocString,
 )
-from jacobsjsondoc.loader import PrepopulatedLoader
+from jacobsjsondoc.fetcher import PrepopulatedFetcher
 from jacobsjsondoc.options import ParseOptions, RefResolutionMode
 import json
 
@@ -81,11 +81,11 @@ class TestNotAReference(unittest.TestCase):
             ],
             "J" : { "$ref": "#/F/1" }
         }"""
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("data", data)
         options = ParseOptions()
         options.should_stop_dollar_id_parse = lambda: True
-        self.doc = create_document(uri="data", loader=ppl)
+        self.doc = create_document(uri="data", fetcher=ppl)
 
     def test_dollar_ref_is_a_reference(self):
         self.assertIsInstance(self.doc["E"], DocReference)
@@ -107,9 +107,9 @@ class TestIdTagging(unittest.TestCase):
 
     def setUp(self):
         self.data = SAMPLE_DOCUMENT
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate(self.data["$id"], json.dumps(self.data))
-        self.doc = create_document(uri=self.data["$id"], loader=ppl)
+        self.doc = create_document(uri=self.data["$id"], fetcher=ppl)
 
     def test_root_has_correct_id(self):
         self.assertEqual(self.doc.base_uri.uri, self.data["$id"])
@@ -165,9 +165,9 @@ class TestDoubleRef(unittest.TestCase):
 
     def setUp(self):
         self.data = DOUBLE_REFERENCE_DOC
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", self.data)
-        self.doc = create_document(uri="1", loader=ppl)
+        self.doc = create_document(uri="1", fetcher=ppl)
 
     def test_is_a_reference(self):
         self.assertIsInstance(self.doc["items"][0], DocReference)
@@ -192,9 +192,9 @@ class TestRootPointerRef(unittest.TestCase):
 
     def setUp(self):
         self.data = ROOT_POINTER_REF
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", self.data)
-        self.doc = create_document(uri="1", loader=ppl)
+        self.doc = create_document(uri="1", fetcher=ppl)
 
     def test_parses_root_pointer_ref(self):
         self.assertIsInstance(self.doc, Document)
@@ -233,12 +233,12 @@ class TestIdTrouble(unittest.TestCase):
             ]
         }
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", data_text)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
         options.dollar_id_token = "id"
-        self.doc = create_document(uri="1", loader=ppl, options=options)
+        self.doc = create_document(uri="1", fetcher=ppl, options=options)
 
     def test_ref_points_to_correct_id(self):
         first_anyof_ref = self.doc["schema"]["anyOf"][0]
@@ -299,17 +299,17 @@ class TestBaseUriChange(unittest.TestCase):
             },
             "allOf": [ { "$ref": "schema-relative-uri-defs2.json" } ]
         }"""
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", data_text)
         ppl.prepopulate("2", data_text_2)
         ppl.prepopulate("3", data_text_3)
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.USE_REFERENCES_OBJECTS
         options.dollar_id_token = "id"
-        self.doc = create_document(uri="1", loader=ppl, options=options)
-        self.doc2 = create_document(uri="2", loader=ppl, options=options)
+        self.doc = create_document(uri="1", fetcher=ppl, options=options)
+        self.doc2 = create_document(uri="2", fetcher=ppl, options=options)
         options.dollar_id_token = "$id"
-        self.doc3 = create_document(uri="3", loader=ppl, options=options)
+        self.doc3 = create_document(uri="3", fetcher=ppl, options=options)
 
     def test_types(self):
         self.assertIsInstance(self.doc["type"], str)
@@ -383,9 +383,9 @@ class TestInvalid(unittest.TestCase):
         bar:
             value: 1
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", self.data)
-        self.doc = create_document(uri="1", loader=ppl)
+        self.doc = create_document(uri="1", fetcher=ppl)
 
     def test_local_ref_goes_nowhere(self):
         self.assertIsInstance(self.doc["foo"], DocReference)
@@ -417,9 +417,9 @@ class TestNotCircularDependency(unittest.TestCase):
             ]
         }
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", self.data)
-        self.doc = create_document(uri="1", loader=ppl)
+        self.doc = create_document(uri="1", fetcher=ppl)
 
     def test_has_reference(self):
         self.assertIsInstance(self.doc["allOf"][0], DocReference)
@@ -451,11 +451,11 @@ class TestNotCircularDependency2(unittest.TestCase):
             }
         }
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", self.data)
         opts = ParseOptions()
-        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
-        self.doc = create_document(uri="1", loader=ppl, options=opts)
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_MERGE_PROPERTIES
+        self.doc = create_document(uri="1", fetcher=ppl, options=opts)
 
     def test_reference_must_have_resolved(self):
         self.assertNotIn("$ref", self.doc)
@@ -472,11 +472,11 @@ class TestRefPropertyWithOthers(unittest.TestCase):
         type: integer
         $ref: "#/$defs/valueRange"
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", self.data)
         opts = ParseOptions()
-        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
-        self.doc = create_document(uri="1", loader=ppl, options=opts)
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_MERGE_PROPERTIES
+        self.doc = create_document(uri="1", fetcher=ppl, options=opts)
 
     def test_is_object(self):
         self.assertIsInstance(self.doc, DocObject)
@@ -512,11 +512,11 @@ class TestRefPropertyMergeWithOthers(unittest.TestCase):
                 type: integer
         $ref: "#/$defs/objProps"
         """
-        ppl = PrepopulatedLoader()
+        ppl = PrepopulatedFetcher()
         ppl.prepopulate("1", self.data)
         opts = ParseOptions()
-        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_REF_PROPERTIES
-        self.doc = create_document(uri="1", loader=ppl, options=opts)
+        opts.ref_resolution_mode = RefResolutionMode.RESOLVE_MERGE_PROPERTIES
+        self.doc = create_document(uri="1", fetcher=ppl, options=opts)
 
     def test_is_object(self):
         self.assertIsInstance(self.doc, DocObject)

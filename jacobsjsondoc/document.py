@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from typing import Optional, Union, Set, Dict, Any, Type
 
-from .loader import LoaderBaseClass, FilesystemLoader
+from .fetcher import FetcherBaseClass, FilesystemFetcher
 from .parser import Parser
 from .reference import JsonPointer
 from .options import ParseOptions, RefResolutionMode
@@ -179,7 +179,7 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
             if (
                 data_key == self._pointers.dollar_ref_token
                 and self._pointers.ref_resolution_mode
-                == RefResolutionMode.RESOLVE_REF_PROPERTIES
+                == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
             ):
                 self[data_key] = DocReference(data_value, inc_ptrs)
             else:
@@ -195,7 +195,7 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                 if (
                     k == self._pointers.dollar_ref_token
                     and self._pointers.ref_resolution_mode
-                    == RefResolutionMode.RESOLVE_REF_PROPERTIES
+                    == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
                 ):
                     if not isinstance(v, DocObject):
                         raise ReferenceResolutionError(
@@ -394,13 +394,13 @@ class ParseController:
 
     def __init__(
         self,
-        loader: Optional[LoaderBaseClass] = None,
+        fetcher: Optional[FetcherBaseClass] = None,
         options: Optional[ParseOptions] = None,
     ) -> None:
-        if loader is None:
-            self.loader: LoaderBaseClass = FilesystemLoader()
+        if fetcher is None:
+            self.fetcher: FetcherBaseClass = FilesystemFetcher()
         else:
-            self.loader = loader
+            self.fetcher = fetcher
         if options is None:
             self.options: ParseOptions = ParseOptions()
         else:
@@ -423,7 +423,7 @@ class ParseController:
         if uri in self._document_structure_cache:
             return self._document_structure_cache[uri]
         try:
-            json_text = self.loader.load(uri)
+            json_text = self.fetcher.fetch(uri)
         except Exception:
             raise UnableToLoadDocument(f"Could not load '{uri}'")
         structure = self.parser.parse_yaml(json_text)
@@ -458,13 +458,13 @@ class ParseController:
 
 def create_document(
     uri: Any,
-    loader: Optional[LoaderBaseClass] = None,
+    fetcher: Optional[FetcherBaseClass] = None,
     options: Optional[ParseOptions] = None,
     controller: Optional[ParseController] = None,
 ) -> Any:
 
     if controller is None:
-        controller = ParseController(loader, options)
+        controller = ParseController(fetcher, options)
     structure = controller.get_document_structure(uri)
 
     initial_pointers = ElementPointers(uri, None, controller)
@@ -498,7 +498,7 @@ def create_document(
                     structure = structure[initial_pointers.dollar_ref_token]
             elif (
                 initial_pointers.ref_resolution_mode
-                == RefResolutionMode.RESOLVE_REF_PROPERTIES
+                == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
             ):
                 pass
             else:
@@ -516,7 +516,7 @@ def create_document(
     doc_root = DocumentRoot(structure, root_pointers)
     if controller.options.ref_resolution_mode in [
         RefResolutionMode.RESOLVE_REFERENCES,
-        RefResolutionMode.RESOLVE_REF_PROPERTIES,
+        RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
     ] and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
 

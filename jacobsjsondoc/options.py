@@ -6,7 +6,7 @@ from enum import Enum
 class RefResolutionMode(Enum):
     USE_REFERENCES_OBJECTS = 0
     RESOLVE_REFERENCES = 1
-    RESOLVE_REF_PROPERTIES = 2
+    RESOLVE_MERGE_PROPERTIES = 2
 
 
 class ParseOptions:

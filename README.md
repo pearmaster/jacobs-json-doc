@@ -16,13 +16,13 @@ JSON Schema, OpenAPI, AsyncAPI, and others have a concept of references like thi
 
 The idea here is that instead of the JSON object with the `$ref` you should be able to get a JSON structure from somewhere else.  In this example, you should find a document called `other.json` and pull out a structure at `/path/to/definition`.  
 
-#### Loader
+#### Fetcher
 
-A **loader object** (inherits from `jacobsjsondoc.loader.LoaderBaseClass`) is able to get the JSON/YAML source.  The loader can be different if you are loading from a database, filesystem, http, etc.
+A **fetcher object** (inherits from `jacobsjsondoc.fetcher.FetcherBaseClass`) is able to get the JSON/YAML source.  The fetcher can be different if you are loading from a database, filesystem, http, etc.
 
 #### Reference Modes
 
-Given a loader, jacobs-json-doc can deal with dollar references.  There are two modes for how it can deal with references:
+Given a fetcher, jacobs-json-doc can deal with dollar references.  There are two modes for how it can deal with references:
 
 * Use `DocReference` objects.  Anywhere in the document tree where there is a `$ref` reference, a `DocReference` object is created.  
 * Automatic resolution.  Anywhere in the document tree where there is a `$ref` reference, the reference is automatically resolved and the `$ref`s are replaced with the structures that they were referencing.
