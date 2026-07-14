@@ -246,8 +246,8 @@ class TestIdTrouble(unittest.TestCase):
         second_anyof_ref = self.doc["schema"]["anyOf"][1]
         self.assertIsInstance(second_anyof_ref, DocReference)
 
-        first_resolved = first_anyof_ref.resolve()
-        second_resolved = second_anyof_ref.resolve()
+        first_anyof_ref.resolve()
+        second_anyof_ref.resolve()
 
 
 class TestBaseUriChange(unittest.TestCase):
@@ -353,7 +353,7 @@ class TestBaseUriChange(unittest.TestCase):
         with self.assertRaises(UnableToLoadDocument) as context:
             # We don't really want to have to load the remote reference, so we'll just check that the
             # exception shows the correct URI to the remote.
-            dereffed = self.doc["definitions"]["baz"]["definitions"]["bar"][
+            self.doc["definitions"]["baz"]["definitions"]["bar"][
                 "items"
             ].resolve()
             self.assertIn(
@@ -365,7 +365,7 @@ class TestBaseUriChange(unittest.TestCase):
         with self.assertRaises(UnableToLoadDocument) as context:
             # We don't really want to have to load the remote reference, so we'll just check that the
             # exception shows the correct URI to the remote.
-            dereffed = self.doc2["items"]["items"].resolve()
+            self.doc2["items"]["items"].resolve()
             self.assertIn(
                 "http://localhost:1234/baseUriChange/folderInteger.json",
                 str(context.exception),
@@ -391,7 +391,7 @@ class TestInvalid(unittest.TestCase):
 
     def test_local_ref_goes_nowhere(self):
         self.assertIsInstance(self.doc["foo"], DocReference)
-        with self.assertRaises(PathReferenceResolutionError) as context:
+        with self.assertRaises(PathReferenceResolutionError):
             self.doc["foo"].resolve()
 
 

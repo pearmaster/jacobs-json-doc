@@ -288,7 +288,7 @@ class DocReference(DocElement):
             raise
         except UnableToLoadDocument:
             raise
-        except:
+        except Exception:
             doc = self._pointers.schema_root
             node = doc._pointers.schema_root.get_node(js_ptr.fragment)
         return node
@@ -410,7 +410,7 @@ class ParseController:
             return self._document_structure_cache[uri]
         try:
             json_text = self.loader.load(uri)
-        except:
+        except Exception:
             raise UnableToLoadDocument(f"Could not load '{uri}'")
         structure = self.parser.parse_yaml(json_text)
         self._document_structure_cache[uri] = structure

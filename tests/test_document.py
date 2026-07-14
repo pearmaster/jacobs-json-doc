@@ -2,7 +2,6 @@ import unittest
 from jacobsjsondoc.loader import PrepopulatedLoader
 from jacobsjsondoc.document import (
     create_document,
-    RefResolutionMode,
     DocReference,
     DocValue,
     DocObject,
@@ -180,7 +179,7 @@ class TestDocument(unittest.TestCase):
         options = ParseOptions()
         options.ref_resolution_mode = RefResolutionMode.RESOLVE_REFERENCES
         with self.assertRaises(CircularDependencyError):
-            doc = create_document(uri="one", loader=ppl, options=options)
+            create_document(uri="one", loader=ppl, options=options)
 
 
 class TestDocumentTypes(unittest.TestCase):
