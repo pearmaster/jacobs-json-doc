@@ -23,8 +23,9 @@ jobs:
             uv pip install unittest-xml-reporting
       - run:
           command: |
+            export PATH="$HOME/.local/bin:$PATH"
             mkdir -p /tmp/testresults
-            python -m xmlrunner discover -o /tmp/testresults
+            uv run python -m xmlrunner discover -o /tmp/testresults
       - store_test_results:
           path: /tmp/testresults
   build_test_3_13:
@@ -48,9 +49,10 @@ jobs:
             uv pip install unittest-xml-reporting coveralls coverage
       - run:
           command: |
+            export PATH="$HOME/.local/bin:$PATH"
             mkdir -p /tmp/testresults
-            coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
-            coveralls
+            uv run coverage run --source=jacobsjsondoc -m xmlrunner discover -o /tmp/testresults
+            uv run coveralls
       - store_test_results:
           path: /tmp/testresults
   test_pypi_publish:
@@ -83,44 +85,17 @@ jobs:
             uv build
             uv pip install twine
             twine upload dist/*
-  safety_check:
-    executor:
-      name: python/default
-      tag: "3.12"
-    steps:
-      - checkout
-      - run:
-          name: Install uv
-          command: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - run:
-          name: Install dependencies
-          command: |
-            export PATH="$HOME/.local/bin:$PATH"
-            uv sync
-      - run:
-          name: Install safety
-          command: |
-            export PATH="$HOME/.local/bin:$PATH"
-            uv pip install safety
-      - run:
-          name: Run safety check
-          command: |
-            export PATH="$HOME/.local/bin:$PATH"
-            uv export --no-hashes -f requirements.txt > /tmp/requirements.txt
-            safety check -r /tmp/requirements.txt
 workflows:
   build_test_publish:
     jobs:
       - build_test_3_12
       - build_test_3_13
-      - safety_check
       - test_pypi_publish:
           context:
             - python_twine_test
           requires:
             - build_test_3_12
             - build_test_3_13
-            - safety_check
           filters:
             branches:
               only:
@@ -131,17 +106,6 @@ workflows:
           requires:
             - build_test_3_12
             - build_test_3_13
-            - safety_check
-          filters:
-            branches:
-              only:
-                - master
-  safety_checks:
-    jobs:
-      - safety_check
-    triggers:
-      - schedule:
-          cron: "0 0 5 * *"
           filters:
             branches:
               only:

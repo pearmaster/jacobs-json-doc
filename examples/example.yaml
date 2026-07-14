@@ -1,0 +1,11 @@
+title: Example Document
+description: A sample YAML file used to demonstrate jacobs-json-doc.
+author:
+  $ref: "author.yaml#/author"
+tags:
+  - example
+  - yaml
+  - demo
+details:
+  version: 1
+  active: true
