@@ -1,15 +1,30 @@
 from __future__ import annotations
 import json
-from typing import Optional, Union, Set, Dict, Any, Type
+from typing import List, Optional, Union, Set, Dict, Any, Type
 
 from .fetcher import FetcherBaseClass, FilesystemFetcher
 from .parser import Parser
 from .reference import JsonPointer
-from .options import ParseOptions, RefResolutionMode
+from .options import (
+    Dialect,
+    NodeContext,
+    ParseOptions,
+    ReferenceKind,
+    RefResolutionMode,
+)
 from .util import merge_dicts
 
 IndexKey = Union[str, int]
 Uri = str
+
+
+def _is_resource_id(id_value: str) -> bool:
+    """True if `id_value` (a raw $id/id value) identifies a new resource (i.e. it has a path,
+    host, or scheme component), as opposed to a plain fragment-only anchor like "#foo" (the
+    legacy draft-06/07 anchor idiom).
+    """
+    parsed = JsonPointer.from_uri_string(id_value)
+    return bool(parsed.scheme or parsed.netloc or parsed.path)
 
 
 class ReferenceResolutionError(Exception):
@@ -36,18 +51,27 @@ class UnableToLoadDocument(Exception):
 class IncompletePointers:
 
     def __init__(
-        self, parents_pointer: ElementPointers, idx: Any, line: Any = None
+        self,
+        parents_pointer: ElementPointers,
+        idx: Any,
+        line: Any = None,
+        raw_value: Any = None,
     ) -> None:
         self._parents_pointer = parents_pointer
         self._idx = idx
         self._line = line
-
-    @property
-    def dollar_ref_token(self) -> str:
-        return self._parents_pointer.controller.options.dollar_ref_token
+        self.dialect: Optional[Dialect] = parents_pointer.dialect
+        options = parents_pointer.controller.options
+        if idx is None:
+            self.context: NodeContext = options.initial_context(self.dialect)
+        else:
+            self.context = options.classify_child(
+                self.dialect, parents_pointer.context, idx, raw_value
+            )
 
     def complete(self, node: DocElement) -> ElementPointers:
         new_ptr = self._parents_pointer.child(self._idx, node)
+        new_ptr.context = self.context
         if self._line:
             new_ptr.line = self._line
         return new_ptr
@@ -63,6 +87,7 @@ class ElementPointers:
         retrieval_uri: Union[JsonPointer, str],
         node: Optional[DocElement],
         controller: ParseController,
+        dialect: Optional[Dialect] = None,
     ) -> None:
         if isinstance(retrieval_uri, JsonPointer):
             self.retrieval_uri = retrieval_uri
@@ -76,14 +101,9 @@ class ElementPointers:
         self.idx: Optional[IndexKey] = None
         self.line: Optional[int] = None
         self.base_uri = self.retrieval_uri.copy()
-
-    @property
-    def dollar_ref_token(self) -> str:
-        return self.controller.options.dollar_ref_token
-
-    @property
-    def dollar_id_token(self) -> str:
-        return self.controller.options.dollar_id_token
+        self.dialect = dialect
+        self.context: NodeContext = NodeContext.SCHEMA
+        self.resource_chain: List[str] = [self.base_uri.uri]
 
     @property
     def ref_resolution_mode(self) -> RefResolutionMode:
@@ -92,14 +112,21 @@ class ElementPointers:
     def update_base_uri(self, uri: str) -> None:
         self.base_uri.to(uri)
         self.schema_root = self.me
+        self.resource_chain = self.resource_chain + [self.base_uri.uri]
+
+    def set_anchor_fragment(self, fragment: str) -> None:
+        self.base_uri.fragment = fragment
 
     def child(self, idx: Any, node: DocElement) -> ElementPointers:
-        new_ptr = ElementPointers(self.retrieval_uri.copy(), node, self.controller)
+        new_ptr = ElementPointers(
+            self.retrieval_uri.copy(), node, self.controller, dialect=self.dialect
+        )
         if self.schema_root is not None:
             new_ptr.schema_root = self.schema_root
         if self.document_root is not None:
             new_ptr.document_root = self.document_root
         new_ptr.base_uri = self.base_uri.copy()
+        new_ptr.resource_chain = self.resource_chain
         new_ptr.parent = self.me
         new_ptr.idx = idx
         return new_ptr
@@ -141,20 +168,21 @@ class DocElement:
         """
 
         if isinstance(data, dict):
-            ref = incomplete_pointers._parents_pointer.controller.options.get_reference(
-                incomplete_pointers._parents_pointer.me, incomplete_pointers._idx, data
-            )
-            if ref is not None:
-                doc_ref = DocReference(ref, incomplete_pointers)
-                return doc_ref
-            doc_obj = DocObject(data, incomplete_pointers)
-            return doc_obj
+            options = incomplete_pointers._parents_pointer.controller.options
+            dialect = incomplete_pointers.dialect
+            context = incomplete_pointers.context
+            ref_match = options.get_reference(dialect, context, data)
+            if (
+                ref_match is not None
+                and options.ref_resolution_mode
+                != RefResolutionMode.RESOLVE_MERGE_PROPERTIES
+            ):
+                return DocReference(ref_match.value, incomplete_pointers)
+            return DocObject(data, incomplete_pointers)
         elif isinstance(data, list):
-            doc_arr = DocArray(data, incomplete_pointers)
-            return doc_arr
+            return DocArray(data, incomplete_pointers)
         else:  # Values
-            doc_val = DocValue.factory(data, incomplete_pointers)
-            return doc_val
+            return DocValue.factory(data, incomplete_pointers)
 
 
 class DocContainer(DocElement):
@@ -168,24 +196,55 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
     def __init__(self, data: dict, pointers: IncompletePointers) -> None:
         super().__init__(pointers)
 
-        new_base_uri = self._pointers.controller.options.get_base_uri(self, data)
+        options = self._pointers.controller.options
+        dialect = self._pointers.dialect
+        context = self._pointers.context
+
+        new_base_uri = options.get_base_uri(dialect, context, data)
         if new_base_uri:
-            self._pointers.update_base_uri(new_base_uri)
+            if _is_resource_id(new_base_uri):
+                self._pointers.update_base_uri(new_base_uri)
+                self._pointers.controller.add_document(self._pointers.base_uri, self)
+            else:
+                fragment = JsonPointer.from_uri_string(new_base_uri).fragment
+                self._pointers.set_anchor_fragment(fragment)
+                self._pointers.controller.add_document(self._pointers.base_uri, self)
+
+        anchors = options.get_anchors(dialect, context, data)
+        if anchors.plain_name is not None:
+            self._pointers.set_anchor_fragment(anchors.plain_name)
             self._pointers.controller.add_document(self._pointers.base_uri, self)
+        if anchors.dynamic_name:
+            # A $dynamicAnchor/$recursiveAnchor also behaves as a plain anchor for ordinary
+            # (non-dynamic) resolution -- e.g. a fallback $ref to the same name.
+            self._pointers.set_anchor_fragment(anchors.dynamic_name)
+            self._pointers.controller.add_document(self._pointers.base_uri, self)
+        if anchors.dynamic_name is not None:
+            self._pointers.controller.add_dynamic_anchor(
+                self._pointers.base_uri.uri, anchors.dynamic_name, self
+            )
+
+        ref_match = options.get_reference(dialect, context, data)
+        dynamic_match = options.get_dynamic_reference(dialect, context, data)
 
         for data_key, data_value in data.items():
             line, _ = data.lc.value(data_key)  # type: ignore[attr-defined]
-            inc_ptrs = IncompletePointers(self._pointers, data_key, line)
-            if (
-                data_key == self._pointers.dollar_ref_token
-                and self._pointers.ref_resolution_mode
-                == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
-            ):
-                self[data_key] = DocReference(data_value, inc_ptrs)
+            inc_ptrs = IncompletePointers(
+                self._pointers, data_key, line, raw_value=data_value
+            )
+            if ref_match is not None and data_key == ref_match.keyword:
+                self[data_key] = DocReference(ref_match.value, inc_ptrs)
+            elif dynamic_match is not None and data_key == dynamic_match.keyword:
+                self[data_key] = DocDynamicReference(
+                    dynamic_match.value, dynamic_match.kind, inc_ptrs
+                )
             else:
                 self[data_key] = self.construct(data_value, inc_ptrs)
 
     def resolve_references(self) -> None:
+        options = self._pointers.controller.options
+        ref_keyword = options.reference_keyword(self._pointers.dialect)
+        mode = options.ref_resolution_mode
         additional_properties: dict[str, Any] = {}
         remove_reference = False
         for k, v in self.items():
@@ -193,9 +252,8 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                 while isinstance(v, DocReference):
                     v = v.resolve()
                 if (
-                    k == self._pointers.dollar_ref_token
-                    and self._pointers.ref_resolution_mode
-                    == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
+                    k == ref_keyword
+                    and mode == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
                 ):
                     if not isinstance(v, DocObject):
                         raise ReferenceResolutionError(
@@ -209,7 +267,7 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                 v.resolve_references()
         merge_dicts(self, additional_properties)
         if remove_reference:
-            del self[self._pointers.dollar_ref_token]
+            del self[ref_keyword]
 
     @staticmethod
     def _replace_ref_escapes(ref_part: str) -> str:
@@ -254,7 +312,9 @@ class DocArray(DocContainer, list):  # type: ignore[type-arg]
         DocContainer.__init__(self, pointers)
         for list_index, data_value in enumerate(data):
             line, _ = data.lc.data[list_index]  # type: ignore[attr-defined]
-            inc_ptrs = IncompletePointers(self._pointers, list_index, line)
+            inc_ptrs = IncompletePointers(
+                self._pointers, list_index, line, raw_value=data_value
+            )
             self.append(self.construct(data_value, inc_ptrs))
 
     def resolve_references(self) -> None:
@@ -277,32 +337,68 @@ class DocReference(DocElement):
 
     def resolve(self) -> Any:
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
-        doc: DocElement
-        node: Any
+        assert self._pointers.schema_root is not None
+        # If the target is within the schema resource we're already inside, resolve directly
+        # against it rather than round-tripping through the controller.
+        if (
+            isinstance(self._pointers.schema_root, DocObject)
+            and js_ptr.uri == self._pointers.schema_root.base_uri
+            and self._pointers.schema_root.has_node(js_ptr.fragment)
+        ):
+            return self._pointers.schema_root.get_node(js_ptr.fragment)
         try:
-            if (
-                self._pointers.schema_root is not None
-                and isinstance(self._pointers.schema_root, DocObject)
-                and js_ptr.uri == self._pointers.schema_root.base_uri
-                and self._pointers.schema_root.has_node(js_ptr.fragment)
-            ):
-                doc = self._pointers.schema_root
-            else:
-                doc = self._pointers.controller.get_document(js_ptr)
-            assert self._pointers.schema_root is not None
-            node = doc._pointers.schema_root.get_node(js_ptr.fragment)  # type: ignore[union-attr]
+            # `get_document` already fully resolves the fragment (whether it's a JSON Pointer
+            # path or a plain-name anchor/alias) -- its result is the final target, not a
+            # container to search within.
+            return self._pointers.controller.get_document(js_ptr)
         except CircularDependencyError:
             raise
         except UnableToLoadDocument:
             raise
         except Exception:
-            assert self._pointers.schema_root is not None
-            doc = self._pointers.schema_root
-            node = doc._pointers.schema_root.get_node(js_ptr.fragment)  # type: ignore[union-attr]
-        return node
+            return self._pointers.schema_root.get_node(js_ptr.fragment)  # type: ignore[attr-defined]
 
     def __repr__(self) -> str:
         return f"<DocReference {self._reference}>"
+
+
+class DocDynamicReference(DocReference):
+    """Represents a `$dynamicRef` (2020-12) or `$recursiveRef` (2019-09).
+
+    Resolution first falls back to plain `$ref`-style resolution (the target `R`). Then, since
+    this library is a document loader rather than a validator, it approximates the spec's
+    per-instance-validation "dynamic scope" with the lexical/reference-chain of resources
+    enclosing this reference's own location (`resource_chain`): the outermost resource in that
+    chain that defines a matching `$dynamicAnchor`/`$recursiveAnchor` wins over `R`. This matches
+    the common "extensible/recursive base schema" idiom that these keywords exist for, but cannot
+    account for dynamic-scope variations that would only arise along untaken instance-validation
+    branches (this loader has no instance and no validator).
+    """
+
+    def __init__(
+        self, reference: str, kind: ReferenceKind, pointers: IncompletePointers
+    ) -> None:
+        super().__init__(reference, pointers)
+        self._kind = kind
+
+    def _dynamic_name(self) -> str:
+        if self._kind == ReferenceKind.RECURSIVE:
+            return ""
+        js_ptr = self._pointers.base_uri.copy().to(self._reference)
+        return js_ptr.fragment
+
+    def resolve(self) -> Any:
+        target = super().resolve()
+        name = self._dynamic_name()
+        controller = self._pointers.controller
+        for resource_uri in self._pointers.resource_chain:
+            candidate = controller.get_dynamic_anchor(resource_uri, name)
+            if candidate is not None:
+                return candidate
+        return target
+
+    def __repr__(self) -> str:
+        return f"<DocDynamicReference {self._reference}>"
 
 
 class DocValue(DocElement):
@@ -409,6 +505,7 @@ class ParseController:
 
         self._document_structure_cache: Dict[Uri, Any] = dict()
         self._document_cache: Dict[str, Document] = dict()
+        self._dynamic_anchor_cache: Dict[str, Dict[str, Any]] = dict()
         self._loading: Set[Uri] = set()
 
     def add_document(self, uri: Union[JsonPointer, str], doc: Any) -> None:
@@ -416,6 +513,12 @@ class ParseController:
             self._document_cache[uri] = doc
         else:
             self._document_cache[repr(uri)] = doc
+
+    def add_dynamic_anchor(self, resource_uri: str, name: str, node: Any) -> None:
+        self._dynamic_anchor_cache.setdefault(resource_uri, {})[name] = node
+
+    def get_dynamic_anchor(self, resource_uri: str, name: str) -> Optional[Any]:
+        return self._dynamic_anchor_cache.get(resource_uri, {}).get(name)
 
     def get_document_structure(self, uri: Union[JsonPointer, Uri]) -> Any:
         if isinstance(uri, JsonPointer):
@@ -466,8 +569,9 @@ def create_document(
     if controller is None:
         controller = ParseController(fetcher, options)
     structure = controller.get_document_structure(uri)
+    dialect = controller.options.resolve_dialect(structure)
 
-    initial_pointers = ElementPointers(uri, None, controller)
+    initial_pointers = ElementPointers(uri, None, controller, dialect=dialect)
 
     root_pointers = IncompletePointers(initial_pointers, None, line=0)
 
@@ -483,27 +587,26 @@ def create_document(
     elif isinstance(structure, str):
         base_class = DocString
     elif isinstance(structure, dict):
-        if initial_pointers.dollar_ref_token in structure:
+        ref_keyword = controller.options.reference_keyword(dialect)
+        if ref_keyword in structure:
             if len(structure) == 1:
                 if (
-                    initial_pointers.ref_resolution_mode
+                    controller.options.ref_resolution_mode
                     == RefResolutionMode.RESOLVE_REFERENCES
                 ):
-                    doc_ref = DocReference(
-                        structure[initial_pointers.dollar_ref_token], root_pointers
-                    )
+                    doc_ref = DocReference(structure[ref_keyword], root_pointers)
                     return doc_ref.resolve()
                 else:
                     base_class = DocReference  # type: ignore[assignment]
-                    structure = structure[initial_pointers.dollar_ref_token]
+                    structure = structure[ref_keyword]
             elif (
-                initial_pointers.ref_resolution_mode
+                controller.options.ref_resolution_mode
                 == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
             ):
                 pass
             else:
                 raise Exception(
-                    f"Ref resolution mode cannot handle structure with '{initial_pointers.dollar_ref_token}' and other properties"
+                    f"Ref resolution mode cannot handle structure with '{ref_keyword}' and other properties"
                 )
     else:
         raise Exception(f"Does not support structures that are a {type(structure)}")
