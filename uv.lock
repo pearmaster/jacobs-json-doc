@@ -111,7 +111,7 @@ wheels = [
 
 [[package]]
 name = "jacobs-json-doc"
-version = "0.17.0a0"
+version = "0.17.0"
 source = { editable = "." }
 dependencies = [
     { name = "ruamel-yaml" },

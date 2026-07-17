@@ -181,6 +181,41 @@ class TestDocument(unittest.TestCase):
         with self.assertRaises(CircularDependencyError):
             create_document(uri="one", fetcher=ppl, options=options)
 
+    def test_get_node_with_empty_string_key_segments(self):
+        # A leading "/" produces a spurious empty leading token that should be
+        # dropped, but an empty-string object key (an internal/trailing empty
+        # segment) is a legitimate JSON Pointer segment and must be preserved.
+        yaml_with_empty_key = """
+        root:
+            a:
+                "":
+                    value: 1
+            "":
+                value: 2
+        """
+        ppl = PrepopulatedFetcher()
+        ppl.prepopulate("Simple", yaml_with_empty_key)
+        doc = create_document(uri="Simple", fetcher=ppl)
+
+        root = doc["root"]
+        self.assertIsInstance(root, DocObject)
+
+        # "/" -> only the leading empty token is dropped, leaving a single ""
+        # segment that resolves to the top-level empty-string key.
+        node = root.get_node("/")
+        self.assertIsInstance(node, DocObject)
+        self.assertEqual(node["value"].value, 2)
+
+        # "/a/" -> leading token dropped, but the trailing "" segment after
+        # "a" is kept, resolving to root["a"][""].
+        node = root.get_node("/a/")
+        self.assertIsInstance(node, DocObject)
+        self.assertEqual(node["value"].value, 1)
+
+        self.assertTrue(root.has_node("/"))
+        self.assertTrue(root.has_node("/a/"))
+        self.assertFalse(root.has_node("/nonexistent"))
+
 
 class TestDocumentTypes(unittest.TestCase):
 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+from typing import IO
 
 class FetcherBaseClass(ABC):
 
@@ -15,10 +15,15 @@ class FilesystemFetcher(FetcherBaseClass):
 
     def __init__(self):
         super().__init__()
+        self._documents: dict[str, IO] = {}
+
+    def add_file_io(self, uri: str, source: IO):
+        self._documents[uri] = source
 
     def fetch(self, uri: str) -> str:
+        if uri in self._documents:
+            return self._documents[uri].read()
         return open(uri).read()
-
 
 class PrepopulatedFetcher(FetcherBaseClass):
 

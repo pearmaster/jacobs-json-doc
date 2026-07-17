@@ -1,6 +1,6 @@
 [project]
 name = "jacobs-json-doc"
-version = "0.17.0a0"
+version = "0.17.0"
 description = "A JSON/YAML loader"
 readme = "README.md"
 license = "MIT"

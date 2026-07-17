@@ -291,7 +291,13 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
             return True
 
     def get_node(self, fragment: str) -> Any:
-        fragment_parts = [p for p in fragment.split("/") if len(p) > 0]
+        parts = fragment.split("/")
+        # A leading "/" (or an entirely empty fragment) produces a spurious empty
+        # leading token; drop only that one. Internal/trailing empty tokens are
+        # legitimate JSON Pointer segments (e.g. an object key of "") and must be kept.
+        if parts and parts[0] == "":
+            parts = parts[1:]
+        fragment_parts = parts
         node: Any = self
         for part in fragment_parts:
             if part.isnumeric() and isinstance(node, list):
