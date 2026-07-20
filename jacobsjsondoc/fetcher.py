@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import IO
 
+
 class FetcherBaseClass(ABC):
 
     def __init__(self):
@@ -24,6 +25,7 @@ class FilesystemFetcher(FetcherBaseClass):
         if uri in self._documents:
             return self._documents[uri].read()
         return open(uri).read()
+
 
 class PrepopulatedFetcher(FetcherBaseClass):
 

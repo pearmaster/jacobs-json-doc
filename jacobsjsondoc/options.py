@@ -88,6 +88,10 @@ class Dialect:
     dynamic_anchor_keyword: Optional[str] = None
     recursive_ref_keyword: Optional[str] = None
     recursive_anchor_keyword: Optional[str] = None
+    # The default reference resolution mode for this dialect.
+    # Pre-2019 drafts collapse `$ref` (replacing siblings) via USE_REFERENCES_OBJECTS.
+    # 2019-09+ drafts apply `$ref` alongside siblings via RESOLVE_MERGE_PROPERTIES.
+    ref_resolution_mode: RefResolutionMode = RefResolutionMode.USE_REFERENCES_OBJECTS
     applicators: Dict[str, ApplicatorKind] = field(default_factory=dict)
     structural_entry_keywords: Dict[str, ApplicatorKind] = field(default_factory=dict)
 
@@ -220,6 +224,20 @@ class JsonSchemaParseOptions(ParseOptions):
         resolved_default = _coerce_dialect(default_dialect)
         assert resolved_default is not None
         self.default_dialect: Dialect = resolved_default
+        # Tracks whether the user explicitly set ref_resolution_mode, so that
+        # resolve_dialect() can update the mode from the detected/default dialect
+        # without clobbering a deliberate user override.
+        self._ref_mode_explicit = False
+        self._ref_resolution_mode = self.default_dialect.ref_resolution_mode
+
+    @property  # type: ignore[override]
+    def ref_resolution_mode(self) -> RefResolutionMode:
+        return self._ref_resolution_mode
+
+    @ref_resolution_mode.setter
+    def ref_resolution_mode(self, mode: RefResolutionMode) -> None:
+        self._ref_resolution_mode = mode
+        self._ref_mode_explicit = True
 
     def resolve_dialect(self, structure: Any) -> Dialect:
         if self.explicit_dialect is not None:
@@ -227,7 +245,11 @@ class JsonSchemaParseOptions(ParseOptions):
         if self.auto_detect:
             detected = detect_dialect(structure)
             if detected is not None:
+                if not self._ref_mode_explicit:
+                    self.ref_resolution_mode = detected.ref_resolution_mode
                 return detected
+        if not self._ref_mode_explicit:
+            self.ref_resolution_mode = self.default_dialect.ref_resolution_mode
         return self.default_dialect
 
     def initial_context(self, dialect: Optional[Dialect]) -> NodeContext:
@@ -379,6 +401,7 @@ DRAFT_2019_09 = Dialect(
     anchor_keyword="$anchor",
     recursive_ref_keyword="$recursiveRef",
     recursive_anchor_keyword="$recursiveAnchor",
+    ref_resolution_mode=RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
     applicators=_DRAFT2019_09_APPLICATORS,
 )
 
@@ -388,6 +411,7 @@ DRAFT_2020_12 = Dialect(
     anchor_keyword="$anchor",
     dynamic_ref_keyword="$dynamicRef",
     dynamic_anchor_keyword="$dynamicAnchor",
+    ref_resolution_mode=RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
     applicators=_DRAFT2020_12_APPLICATORS,
 )
 
@@ -420,6 +444,7 @@ OPENAPI_3_1 = Dialect(
     anchor_keyword="$anchor",
     dynamic_ref_keyword="$dynamicRef",
     dynamic_anchor_keyword="$dynamicAnchor",
+    ref_resolution_mode=RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
     applicators=_DRAFT2020_12_APPLICATORS,
     structural_entry_keywords={
         "schema": ApplicatorKind.SINGLE_SCHEMA,
@@ -446,6 +471,7 @@ ASYNCAPI_3 = Dialect(
     anchor_keyword="$anchor",
     dynamic_ref_keyword="$dynamicRef",
     dynamic_anchor_keyword="$dynamicAnchor",
+    ref_resolution_mode=RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
     applicators=_DRAFT2020_12_APPLICATORS,
     structural_entry_keywords={
         "payload": ApplicatorKind.SINGLE_SCHEMA,

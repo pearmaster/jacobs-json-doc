@@ -160,7 +160,9 @@ class DocElement:
         return self._pointers.base_uri
 
     @staticmethod
-    def construct(data: Any, incomplete_pointers: IncompletePointers) -> Any:
+    def construct(
+        data: Any, incomplete_pointers: IncompletePointers
+    ) -> DocReference | DocObject | DocArray | DocValue:
         """This is a factory for new elements inheriting from DocElement, based on the
         data that is passed in.
 
@@ -177,6 +179,8 @@ class DocElement:
                 and options.ref_resolution_mode
                 != RefResolutionMode.RESOLVE_MERGE_PROPERTIES
             ):
+                # USE_REFERENCES_OBJECTS or RESOLVE_REFERENCES: collapse the
+                # whole object into a reference, discarding any sibling properties.
                 return DocReference(ref_match.value, incomplete_pointers)
             return DocObject(data, incomplete_pointers)
         elif isinstance(data, list):
@@ -392,6 +396,17 @@ class DocDynamicReference(DocReference):
             return ""
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
         return js_ptr.fragment
+
+    def static_resolve(self) -> Any:
+        """Resolve as a plain `$ref` would, ignoring dynamic scope.
+
+        A `$dynamicRef`/`$recursiveRef` first resolves like a normal reference to a
+        "static" target; the dynamic-scope replacement only applies when that static
+        target itself carries the corresponding anchor. A validator that tracks the
+        runtime dynamic scope needs this static target to make that decision, so it is
+        exposed here rather than being hidden inside `resolve()`.
+        """
+        return DocReference.resolve(self)
 
     def resolve(self) -> Any:
         target = super().resolve()

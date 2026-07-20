@@ -37,6 +37,29 @@ class JsonPointer:
     def copy(self) -> JsonPointer:
         return self.__class__(self.scheme, self.netloc, self.path, self.fragment)
 
+    @staticmethod
+    def _remove_dot_segments(path: str) -> str:
+        """Normalize `.`/`..` segments in a URI path per RFC 3986 section 5.2.4."""
+        if not path:
+            return path
+        leading_slash = path.startswith("/")
+        trailing_slash = path.endswith("/")
+        out: list = []
+        for part in path.split("/"):
+            if part == "" or part == ".":
+                continue
+            if part == "..":
+                if out:
+                    out.pop()
+                continue
+            out.append(part)
+        normalized = "/".join(out)
+        if leading_slash:
+            normalized = "/" + normalized
+        if trailing_slash and not normalized.endswith("/"):
+            normalized += "/"
+        return normalized
+
     def to(self, reference: Union[str, JsonPointer]) -> JsonPointer:
         new_ref: JsonPointer
         if isinstance(reference, str):
@@ -58,6 +81,7 @@ class JsonPointer:
                     path_parts = self.path.split("/")[:-1]
                     path_parts.extend(new_ref.path.split("/"))
                     self.path = "/".join(path_parts)
+            self.path = self._remove_dot_segments(self.path)
             self.fragment = ""
         if new_ref.fragment:
             self.fragment = new_ref.fragment

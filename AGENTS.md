@@ -46,9 +46,9 @@ A `FetcherBaseClass` subclass provides the `fetch(uri) -> str` method to retriev
 ### Reference Resolution Modes
 
 Controlled via `ParseOptions.ref_resolution_mode`:
-- `USE_REFERENCES_OBJECTS` — `$ref` entries become `DocReference` objects (default)
-- `RESOLVE_REFERENCES` — `$ref` entries are automatically resolved and replaced
-- `RESOLVE_MERGE_PROPERTIES` — `$ref` is merged alongside sibling properties (OpenAPI style)
+- `USE_REFERENCES_OBJECTS` — An object containing a `$ref` entry becomes a `DocReference` objects, and any other properties in the object are discarded.  For example `{"$ref": "#/$defs/foo", "type": "integer"}` becomes a `DocReference` that points to whatever is at `#/$defs/foo`. (default). 
+- `RESOLVE_REFERENCES` — An object containg a `$ref` entry becomes the schema that is defined at the reference.  For example `{"$defs": {"foo": {"minimum": 0}}, "bar": {"$ref": "#/$defs/foo", "type": "integer"}}` becomes `{"$defs": {"foo": {"minimum": 0}}, "bar": {"minimum": 0}}`
+- `RESOLVE_MERGE_PROPERTIES` — The `$ref` property of an object is replaced by the schema that is defined at the reference, merging with the siblings to the `$ref` property.  For example `{"$defs": {"foo": {"minimum": 0}}, "bar": {"$ref": "#/$defs/foo", "type": "integer"}}` becomes `{"$defs": {"foo": {"minimum": 0}}, "bar": {"minimum": 0, "type": "integer"}}`
 
 ### JsonPointer
 

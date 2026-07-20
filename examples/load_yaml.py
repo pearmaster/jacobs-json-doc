@@ -39,7 +39,9 @@ def main() -> None:
         print(f"  - {tag}")
 
     print("\ndetails:")
-    print(f"  version: {doc['details']['version']} (line {doc['details']['version'].line})")
+    print(
+        f"  version: {doc['details']['version']} (line {doc['details']['version'].line})"
+    )
     print(f"  active: {doc['details']['active']}")
 
 
