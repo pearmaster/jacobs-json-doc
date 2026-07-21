@@ -241,6 +241,8 @@ class JsonSchemaParseOptions(ParseOptions):
 
     def resolve_dialect(self, structure: Any) -> Dialect:
         if self.explicit_dialect is not None:
+            if not self._ref_mode_explicit:
+                self.ref_resolution_mode = self.explicit_dialect.ref_resolution_mode
             return self.explicit_dialect
         if self.auto_detect:
             detected = detect_dialect(structure)
