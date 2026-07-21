@@ -251,6 +251,7 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
         mode = options.ref_resolution_mode
         additional_properties: dict[str, Any] = {}
         remove_reference = False
+        replacements: list[tuple[IndexKey, Any]] = []
         for k, v in self.items():
             if isinstance(v, DocReference):
                 while isinstance(v, DocReference):
@@ -260,15 +261,22 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                     and mode == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
                 ):
                     if not isinstance(v, DocObject):
-                        raise ReferenceResolutionError(
-                            "$ref property didn't resolve to an object"
-                        )
+                        # $ref resolved to a non-object (e.g. boolean schema).
+                        # Per JSON Schema spec, siblings are ignored when $ref is
+                        # present, so the parent should replace this object with
+                        # the resolved value.
+                        self._ref_replacement = v
+                        return
                     merge_dicts(additional_properties, v)
                     remove_reference = True
                 else:
                     self[k] = v
             elif isinstance(v, DocObject) or isinstance(v, DocArray):
                 v.resolve_references()
+                if hasattr(v, "_ref_replacement"):
+                    replacements.append((k, v._ref_replacement))
+        for k, v in replacements:
+            self[k] = v
         merge_dicts(self, additional_properties, skip_existing=True)
         if remove_reference:
             del self[ref_keyword]
@@ -650,5 +658,7 @@ def create_document(
         RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
     ] and hasattr(doc_root, "resolve_references"):
         doc_root.resolve_references()
+        if hasattr(doc_root, "_ref_replacement"):
+            return doc_root._ref_replacement
 
     return doc_root
