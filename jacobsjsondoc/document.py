@@ -269,7 +269,7 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                     self[k] = v
             elif isinstance(v, DocObject) or isinstance(v, DocArray):
                 v.resolve_references()
-        merge_dicts(self, additional_properties)
+        merge_dicts(self, additional_properties, skip_existing=True)
         if remove_reference:
             del self[ref_keyword]
 
@@ -561,20 +561,27 @@ class ParseController:
         else:
             ptr = JsonPointer.from_uri_string(doc_uri)
         uri = ptr.uri
-        if ptr.as_string() in self._loading:
-            raise CircularDependencyError(ptr.as_string())
+        # Check the cache first — a reference to an anchor within the same
+        # resource (e.g. "$ref": "#foo") shares the base URI with the
+        # document currently being loaded, so it must not be treated as
+        # circular.
         if ptr.as_string() in self._document_cache:
-            doc = self._document_cache[ptr.as_string()]
-            return doc
+            return self._document_cache[ptr.as_string()]
         if ptr.uri in self._document_cache:
             doc = self._document_cache[ptr.uri]
             if ptr.fragment:
                 doc = doc.get_node(ptr.fragment)
             return doc
+        if ptr.as_string() in self._loading:
+            raise CircularDependencyError(ptr.as_string())
         self._loading.add(ptr.as_string())
         doc = create_document(uri, controller=self)
         self.add_document(uri, doc)
         self._loading.remove(ptr.as_string())
+        # Re-check cache after loading — a recursive call may have already
+        # populated it with the fragment entry we need.
+        if ptr.as_string() in self._document_cache:
+            return self._document_cache[ptr.as_string()]
         if ptr.fragment:
             doc = doc.get_node(ptr.fragment)
         return doc
