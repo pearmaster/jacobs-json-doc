@@ -278,7 +278,20 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                         # replace this object with the resolved value.
                         self._ref_replacement = v
                         return
-                    merge_dicts(additional_properties, v)
+                    # Merge the resolved schema's properties, but exclude any
+                    # ref keywords ($ref, $recursiveRef, $dynamicRef).  These
+                    # belong to the resolved schema's own reference chain and
+                    # may be stale — the resolved schema's own
+                    # resolve_references() may not have completed yet (e.g.
+                    # when a $recursiveRef resolves to an ancestor whose $ref
+                    # is still pending removal).  Bringing them in would
+                    # create a stale $ref that the validator follows instead
+                    # of the merged siblings.
+                    for prop_key, prop_val in v.items():
+                        if prop_key not in ref_keywords:
+                            merge_dicts(
+                                additional_properties, {prop_key: prop_val}
+                            )
                     keys_to_remove.append(k)
                 else:
                     self[k] = v
