@@ -249,26 +249,37 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
         options = self._pointers.controller.options
         ref_keyword = options.reference_keyword(self._pointers.dialect)
         mode = options.ref_resolution_mode
+        # Build the set of reference keywords that should be treated like $ref
+        # during merge resolution.  This covers $recursiveRef (2019-09) and
+        # $dynamicRef (2020-12), which behave identically to $ref for the
+        # purposes of reference resolution and sibling merging.
+        ref_keywords: set[str] = {ref_keyword}
+        dialect = self._pointers.dialect
+        if dialect is not None:
+            if dialect.recursive_ref_keyword is not None:
+                ref_keywords.add(dialect.recursive_ref_keyword)
+            if dialect.dynamic_ref_keyword is not None:
+                ref_keywords.add(dialect.dynamic_ref_keyword)
         additional_properties: dict[str, Any] = {}
-        remove_reference = False
+        keys_to_remove: list[str] = []
         replacements: list[tuple[IndexKey, Any]] = []
         for k, v in self.items():
             if isinstance(v, DocReference):
                 while isinstance(v, DocReference):
                     v = v.resolve()
                 if (
-                    k == ref_keyword
+                    k in ref_keywords
                     and mode == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
                 ):
                     if not isinstance(v, DocObject):
-                        # $ref resolved to a non-object (e.g. boolean schema).
-                        # Per JSON Schema spec, siblings are ignored when $ref is
-                        # present, so the parent should replace this object with
-                        # the resolved value.
+                        # Reference resolved to a non-object (e.g. boolean schema).
+                        # Per JSON Schema spec, siblings are ignored when a
+                        # reference keyword is present, so the parent should
+                        # replace this object with the resolved value.
                         self._ref_replacement = v
                         return
                     merge_dicts(additional_properties, v)
-                    remove_reference = True
+                    keys_to_remove.append(k)
                 else:
                     self[k] = v
             elif isinstance(v, DocObject) or isinstance(v, DocArray):
@@ -278,8 +289,8 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
         for k, v in replacements:
             self[k] = v
         merge_dicts(self, additional_properties, skip_existing=True)
-        if remove_reference:
-            del self[ref_keyword]
+        for k in keys_to_remove:
+            del self[k]
 
     @staticmethod
     def _replace_ref_escapes(ref_part: str) -> str:
@@ -420,6 +431,20 @@ class DocDynamicReference(DocReference):
         target = super().resolve()
         name = self._dynamic_name()
         controller = self._pointers.controller
+
+        # Per the spec (2019-09 §9.3.3 / 2020-12 §12.3.3):
+        #   "If the initially resolved starting point URI includes no
+        #   $recursiveAnchor / $dynamicAnchor, the behavior is identical to
+        #   regular $ref."
+        # The "initially resolved starting point" is the static target R
+        # that a plain $ref would resolve to.  If R does not carry a
+        # matching dynamic anchor, the dynamic scope walk is skipped
+        # entirely and the reference behaves like a plain $ref.
+        if isinstance(target, DocElement):
+            target_uri = target.base_uri.uri
+            if controller.get_dynamic_anchor(target_uri, name) is None:
+                return target
+
         for resource_uri in self._pointers.resource_chain:
             candidate = controller.get_dynamic_anchor(resource_uri, name)
             if candidate is not None:
