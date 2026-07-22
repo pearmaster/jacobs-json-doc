@@ -195,6 +195,134 @@ class DocContainer(DocElement):
         super().__init__(pointers)
 
 
+# Keywords whose value is a schema-keyword map that can be recursively merged
+# (rather than wrapped in allOf) when a $ref sibling and the referenced schema
+# both define them.  For these, a deep merge is semantically correct because
+# the keys are independent property/definition names.
+_MERGEABLE_DICT_KEYWORDS: frozenset = frozenset(
+    {"properties", "patternProperties", "$defs", "definitions", "dependentSchemas"}
+)
+
+# Keywords that are meta/structural (not validation keywords).  Conflicts on
+# these don't trigger allOf wrapping — the sibling's value is kept.
+_META_KEYWORDS: frozenset = frozenset(
+    {
+        "$id",
+        "$schema",
+        "$anchor",
+        "$recursiveAnchor",
+        "$dynamicAnchor",
+        "$comment",
+        "title",
+        "description",
+        "default",
+        "examples",
+        "deprecated",
+        "readOnly",
+        "writeOnly",
+    }
+)
+
+
+def _has_conflicting_keys(
+    to_dict: Dict[str, Any], from_dict: Dict[str, Any]
+) -> bool:
+    """Return True if any key in from_dict exists in to_dict but the two
+    values cannot be recursively merged (i.e. not both dicts, or a
+    non-mergeable dict keyword).  Meta/structural keywords are ignored."""
+    for k in from_dict:
+        if k in to_dict:
+            if k in _META_KEYWORDS:
+                continue
+            if (
+                isinstance(from_dict[k], dict)
+                and isinstance(to_dict[k], dict)
+                and k in _MERGEABLE_DICT_KEYWORDS
+            ):
+                continue
+            return True
+    return False
+
+
+def _has_sibling_validation_keywords(
+    to_dict: Dict[str, Any], keys_to_remove: list
+) -> bool:
+    """Return True if the sibling schema (to_dict) has any validation
+    keywords besides the ref keywords being removed and meta keywords."""
+    for k in to_dict:
+        if k in keys_to_remove:
+            continue
+        if k in _META_KEYWORDS:
+            continue
+        return True
+    return False
+
+
+# Keywords that should be hoisted out of allOf branches so they can see
+# annotations from all branches.
+_HOIST_KEYWORDS: frozenset = frozenset({"unevaluatedProperties", "unevaluatedItems"})
+
+
+def _wrap_in_allof(
+    self: Dict[str, Any],
+    additional_properties: Dict[str, Any],
+    keys_to_remove: list,
+) -> None:
+    """Restructure the schema into allOf: [sibling_branch, ref_branch]
+    with collector keywords (unevaluatedProperties/unevaluatedItems) hoisted
+    outside the allOf — but ONLY when they are siblings of $ref (in self),
+    not when they come from the referenced schema (additional_properties).
+    Collector keywords from the referenced schema must stay inside the ref
+    branch so they can't see sibling annotations (the "cousins" rule)."""
+    sibling_branch: Dict[str, Any] = {
+        k: v for k, v in self.items() if k not in keys_to_remove and k not in _HOIST_KEYWORDS
+    }
+    ref_branch: Dict[str, Any] = dict(additional_properties)
+    # Only hoist collector keywords that are siblings of $ref (in self),
+    # not from the referenced schema.
+    hoisted: Dict[str, Any] = {}
+    for k in _HOIST_KEYWORDS:
+        if k in self:
+            hoisted[k] = self[k]
+    # Clear self and replace with allOf + hoisted keywords.
+    all_keys = list(self.keys())
+    for k in all_keys:
+        del self[k]
+    self["allOf"] = [sibling_branch, ref_branch]  # type: ignore[assignment]
+    for k, v in hoisted.items():
+        self[k] = v
+
+
+def _merge_schema_properties(
+    to_dict: Dict[str, Any], from_dict: Dict[str, Any]
+) -> None:
+    """Merge referenced-schema properties (``from_dict``) into the sibling
+    schema (``to_dict``).
+
+    When a keyword exists in both, the 2019-09+ spec requires both to be
+    applied (as if in an allOf).  For dict-valued mergeable keywords (e.g.
+    ``properties``) a recursive merge is correct.  For any other conflicting
+    keyword, the two values are wrapped in an ``allOf`` array so the validator
+    applies both independently.
+    """
+    for k, v in from_dict.items():
+        if k not in to_dict:
+            to_dict[k] = v
+        elif k in _META_KEYWORDS:
+            # Keep the sibling's value for meta/structural keywords.
+            continue
+        elif isinstance(v, dict) and isinstance(to_dict[k], dict):
+            if k in _MERGEABLE_DICT_KEYWORDS:
+                merge_dicts(to_dict[k], v)
+            else:
+                # Non-mergeable dict keyword — wrap both in allOf.
+                to_dict[k] = {"allOf": [to_dict[k], v]}  # type: ignore[assignment]
+        else:
+            # Conflicting non-dict keyword (e.g. "items" as a list, "type" as
+            # a string) — wrap both in allOf so both are applied.
+            to_dict[k] = {"allOf": [to_dict[k], v]}  # type: ignore[assignment]
+
+
 class DocObject(DocContainer, dict):  # type: ignore[type-arg]
 
     def __init__(self, data: dict, pointers: IncompletePointers) -> None:
@@ -263,7 +391,11 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
         additional_properties: dict[str, Any] = {}
         keys_to_remove: list[str] = []
         replacements: list[tuple[IndexKey, Any]] = []
-        for k, v in self.items():
+        # Snapshot the items because v.resolve_references() (called below
+        # for resolved $ref targets and child DocObjects) may modify self
+        # in place — adding or removing keys when the resolved schema
+        # contains references back to this object.
+        for k, v in list(self.items()):
             if isinstance(v, DocReference):
                 while isinstance(v, DocReference):
                     v = v.resolve()
@@ -278,6 +410,14 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                         # replace this object with the resolved value.
                         self._ref_replacement = v
                         return
+                    # Ensure the resolved schema's own references are resolved
+                    # before we merge its properties.  This is critical when the
+                    # resolved schema is a sibling in $defs that hasn't been
+                    # processed yet (iteration order: $ref before $defs).
+                    # Guard against re-processing the same document (circular).
+                    if v is not self and not getattr(v, "_refs_resolved", False):
+                        v._refs_resolved = True  # type: ignore[attr-defined]
+                        v.resolve_references()
                     # Merge the resolved schema's properties, but exclude any
                     # ref keywords ($ref, $recursiveRef, $dynamicRef).  These
                     # belong to the resolved schema's own reference chain and
@@ -296,14 +436,41 @@ class DocObject(DocContainer, dict):  # type: ignore[type-arg]
                 else:
                     self[k] = v
             elif isinstance(v, DocObject) or isinstance(v, DocArray):
-                v.resolve_references()
+                if not getattr(v, "_refs_resolved", False):
+                    v._refs_resolved = True  # type: ignore[attr-defined]
+                    v.resolve_references()
                 if hasattr(v, "_ref_replacement"):
                     replacements.append((k, v._ref_replacement))
         for k, v in replacements:
             self[k] = v
-        merge_dicts(self, additional_properties, skip_existing=True)
+        # Merge the referenced schema's properties into self.  In 2019-09+,
+        # $ref siblings are applied alongside the referenced schema, but in
+        # a SEPARATE scope — the referenced schema's unevaluatedProperties/
+        # unevaluatedItems must NOT see annotations from sibling keywords
+        # (and vice versa).  This is achieved by wrapping in allOf.
+        #
+        # However, unevaluatedProperties/unevaluatedItems that are SIBLINGS
+        # of $ref (not inside the referenced schema) must see annotations
+        # from ALL allOf branches, so they are hoisted out of the allOf.
+        #
+        # For mergeable dict keywords (e.g. "properties") with no other
+        # conflicts, a simple recursive merge is equivalent and cheaper.
+        if additional_properties and _has_conflicting_keys(self, additional_properties):
+            _wrap_in_allof(self, additional_properties, keys_to_remove)
+        elif (
+            additional_properties
+            and _has_sibling_validation_keywords(self, keys_to_remove)
+            and any(k in additional_properties for k in _HOIST_KEYWORDS)
+        ):
+            # The referenced schema has unevaluatedProperties/unevaluatedItems
+            # which must NOT see annotations from sibling keywords — wrap in
+            # allOf to enforce scope separation.
+            _wrap_in_allof(self, additional_properties, keys_to_remove)
+        else:
+            _merge_schema_properties(self, additional_properties)
         for k in keys_to_remove:
-            del self[k]
+            if k in self:
+                del self[k]
 
     @staticmethod
     def _replace_ref_escapes(ref_part: str) -> str:
