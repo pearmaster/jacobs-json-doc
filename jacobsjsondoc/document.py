@@ -550,10 +550,18 @@ class DocReference(DocElement):
     def resolve(self) -> Any:
         js_ptr = self._pointers.base_uri.copy().to(self._reference)
         assert self._pointers.schema_root is not None
+        # A URI fragment is a JSON Pointer only when it is empty or begins with
+        # "/".  A non-empty fragment that does not start with "/" is a plain-name
+        # anchor and must be resolved via the anchor registry, NOT walked as a
+        # JSON Pointer path -- otherwise an anchor named e.g. "items" is shadowed
+        # by a sibling property literally keyed "items".
+        _frag = js_ptr.fragment
+        _is_json_pointer = (_frag == "") or _frag.startswith("/")
         # If the target is within the schema resource we're already inside, resolve directly
         # against it rather than round-tripping through the controller.
         if (
-            isinstance(self._pointers.schema_root, DocObject)
+            _is_json_pointer
+            and isinstance(self._pointers.schema_root, DocObject)
             and js_ptr.uri == self._pointers.schema_root.base_uri
             and self._pointers.schema_root.has_node(js_ptr.fragment)
         ):
