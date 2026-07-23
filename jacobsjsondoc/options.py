@@ -11,6 +11,7 @@ class RefResolutionMode(Enum):
     USE_REFERENCES_OBJECTS = 0
     RESOLVE_REFERENCES = 1
     RESOLVE_MERGE_PROPERTIES = 2
+    KEEP_REFERENCES = 3
 
 
 class NodeContext(Enum):
@@ -403,7 +404,7 @@ DRAFT_2019_09 = Dialect(
     anchor_keyword="$anchor",
     recursive_ref_keyword="$recursiveRef",
     recursive_anchor_keyword="$recursiveAnchor",
-    ref_resolution_mode=RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
+    ref_resolution_mode=RefResolutionMode.KEEP_REFERENCES,
     applicators=_DRAFT2019_09_APPLICATORS,
 )
 
@@ -413,7 +414,7 @@ DRAFT_2020_12 = Dialect(
     anchor_keyword="$anchor",
     dynamic_ref_keyword="$dynamicRef",
     dynamic_anchor_keyword="$dynamicAnchor",
-    ref_resolution_mode=RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
+    ref_resolution_mode=RefResolutionMode.KEEP_REFERENCES,
     applicators=_DRAFT2020_12_APPLICATORS,
 )
 

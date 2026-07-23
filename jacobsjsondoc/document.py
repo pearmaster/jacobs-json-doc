@@ -177,7 +177,10 @@ class DocElement:
             if (
                 ref_match is not None
                 and options.ref_resolution_mode
-                != RefResolutionMode.RESOLVE_MERGE_PROPERTIES
+                in (
+                    RefResolutionMode.USE_REFERENCES_OBJECTS,
+                    RefResolutionMode.RESOLVE_REFERENCES,
+                )
             ):
                 # USE_REFERENCES_OBJECTS or RESOLVE_REFERENCES: collapse the
                 # whole object into a reference, discarding any sibling properties.
@@ -631,6 +634,36 @@ class DocDynamicReference(DocReference):
                 return candidate
         return target
 
+    def resolve_in_scope(self, resource_uris: list) -> Any:
+        """Resolve using the caller-supplied dynamic scope instead of the
+        lexical ``resource_chain``.
+
+        This is the validator's entry point: the validator maintains a
+        runtime dynamic scope (the chain of schema resources entered during
+        validation) and passes it here so that ``$dynamicRef``/``$recursiveRef``
+        resolve correctly even when the lexical and dynamic scopes differ
+        (e.g. inside an ``if/then/else`` branch).
+
+        The logic mirrors ``resolve()`` but walks ``resource_uris``
+        (outermost → innermost) instead of ``self._pointers.resource_chain``.
+        """
+        R = self.static_resolve()
+        name = self._dynamic_name()
+        controller = self._pointers.controller
+
+        # Per spec §9.3.3 / §12.3.3: if the static target R doesn't carry a
+        # matching dynamic anchor, behaviour is identical to plain $ref.
+        if isinstance(R, DocElement):
+            target_uri = R.base_uri.uri
+            if controller.get_dynamic_anchor(target_uri, name) is None:
+                return R
+
+        for resource_uri in resource_uris:
+            candidate = controller.get_dynamic_anchor(resource_uri, name)
+            if candidate is not None:
+                return candidate
+        return R
+
     def __repr__(self) -> str:
         return f"<DocDynamicReference {self._reference}>"
 
@@ -746,7 +779,7 @@ class ParseController:
         if isinstance(uri, str):
             self._document_cache[uri] = doc
         else:
-            self._document_cache[repr(uri)] = doc
+            self._document_cache[uri.as_string()] = doc
 
     def add_dynamic_anchor(self, resource_uri: str, name: str, node: Any) -> None:
         self._dynamic_anchor_cache.setdefault(resource_uri, {})[name] = node
@@ -840,9 +873,9 @@ def create_document(
                 else:
                     base_class = DocReference  # type: ignore[assignment]
                     structure = structure[ref_keyword]
-            elif (
-                controller.options.ref_resolution_mode
-                == RefResolutionMode.RESOLVE_MERGE_PROPERTIES
+            elif controller.options.ref_resolution_mode in (
+                RefResolutionMode.RESOLVE_MERGE_PROPERTIES,
+                RefResolutionMode.KEEP_REFERENCES,
             ):
                 pass
             else:
